@@ -12,6 +12,7 @@ export const SUPPORTED_MINUTES = [10, 20, 30] as const;
 
 /** Snap any requested length to the nearest supported value (ties round up). */
 export function snapMinutes(totalMin: number): number {
+  if (!Number.isFinite(totalMin)) return 10;
   const clamped = Math.min(30, Math.max(10, totalMin));
   return Math.round(clamped / 10) * 10;
 }

@@ -79,7 +79,9 @@ describe('generate — structure', () => {
   });
 
   it('varies across seeds', () => {
-    const outs = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => JSON.stringify(generate(20, {}, s)));
+    const shape = (segs: ReturnType<typeof generate>) =>
+      segs.map((s) => `${s.intensity}:${s.durationSec}`).join(',');
+    const outs = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => shape(generate(20, {}, s)));
     expect(new Set(outs).size).toBeGreaterThan(1);
   });
 
