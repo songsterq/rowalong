@@ -65,4 +65,14 @@ describe('generate', () => {
     expect(total(segs)).toBe(2 * 60);
     expect(segs.length).toBeGreaterThan(0);
   });
+
+  it('makes every segment duration a multiple of 5 seconds', () => {
+    for (const min of [2, 7, 20, 33, 45]) {
+      for (let seed = 1; seed <= 4; seed++) {
+        for (const s of generate(min, {}, seed)) {
+          expect(s.durationSec % 5).toBe(0);
+        }
+      }
+    }
+  });
 });

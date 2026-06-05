@@ -17,7 +17,7 @@ export function spmText(i: Intensity): string {
 export const OVERLAY_CSS = `
   .ov-root { font-family: -apple-system, system-ui, sans-serif; color:#fff;
     border-radius:16px; padding:16px 18px; background:rgba(18,18,20,.92);
-    box-shadow:0 10px 30px rgba(0,0,0,.5); user-select:none; cursor:pointer;
+    user-select:none; cursor:pointer;
     transition: background .12s ease; }
   .ov-root[data-status="paused"] { opacity:.55; }
   .ov-label { font-weight:800; letter-spacing:.04em; text-transform:uppercase; font-size:15px; }
