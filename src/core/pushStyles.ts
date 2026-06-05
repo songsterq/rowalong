@@ -57,7 +57,43 @@ function prependBuild(blocks: Block[]): Block[] {
   return build > 0 ? [{ intensity: 'medium', durationSec: build }, ...blocks] : blocks;
 }
 
-export function buildPush(style: PushStyle, _rng: Rng): Block[] {
+const STEP = 5;
+
+// Seeded random push: fill the 420s budget with hard/allout work blocks (all-out is
+// every third, so less frequent than hard) and medium/easy rests (medium after hard,
+// easy after all-out). Work blocks are 20-150s; each rest is 0.5-1x its work. Runs in
+// 5-second units so every duration is a multiple of 5; the < one-block remainder is
+// left for prependBuild to turn into the leading medium build.
+function randomBlocks(rng: Rng): Block[] {
+  const toU = (sec: number) => Math.round(sec / STEP);
+  const minWorkU = toU(20); // 4
+  const maxWorkU = toU(150); // 30
+  const minBlockU = minWorkU + Math.ceil(minWorkU * 0.5); // smallest work + its 0.5x rest
+
+  let remainingU = toU(PUSH_SEC);
+  const out: Block[] = [];
+  let workCount = 0;
+  while (remainingU >= minBlockU) {
+    const intensity: Intensity = workCount % 3 === 2 ? 'allout' : 'hard';
+    // Leave room for at least a 0.5x rest: work * 1.5 <= remaining.
+    const workCeilU = Math.min(maxWorkU, Math.floor(remainingU / 1.5));
+    const workU = rng.int(minWorkU, Math.max(minWorkU, workCeilU));
+
+    const restLoU = Math.ceil(workU * 0.5);
+    const restHiU = Math.min(workU, remainingU - workU);
+    const restU = rng.int(restLoU, restHiU);
+    const restIntensity: Intensity = intensity === 'allout' ? 'easy' : 'medium';
+
+    out.push({ intensity, durationSec: workU * STEP });
+    remainingU -= workU;
+    out.push({ intensity: restIntensity, durationSec: restU * STEP });
+    remainingU -= restU;
+    workCount++;
+  }
+  return out;
+}
+
+export function buildPush(style: PushStyle, rng: Rng): Block[] {
   switch (style) {
     case 'long':
       return prependBuild(longBlocks());
@@ -68,6 +104,6 @@ export function buildPush(style: PushStyle, _rng: Rng): Block[] {
     case 'crazy':
       return prependBuild(crazyBlocks());
     case 'random':
-      return prependBuild(crazyBlocks()); // placeholder — replaced in Task 2
+      return prependBuild(randomBlocks(rng));
   }
 }
