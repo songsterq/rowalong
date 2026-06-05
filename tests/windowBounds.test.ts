@@ -18,6 +18,10 @@ describe('isVisibleOnSomeDisplay', () => {
     // Hangs off the right edge but its left portion is still on-screen.
     expect(isVisibleOnSomeDisplay({ x: 1400, y: 100, width: 250, height: 240 }, DISPLAYS)).toBe(true);
   });
+
+  it('is false when there are no displays', () => {
+    expect(isVisibleOnSomeDisplay({ x: 100, y: 100, width: 250, height: 240 }, [])).toBe(false);
+  });
 });
 
 describe('pickStartBounds', () => {
@@ -54,5 +58,9 @@ describe('pickStartBounds', () => {
   it('falls back to defaults when saved bounds are malformed', () => {
     expect(pickStartBounds({ x: 'a', y: 10 }, DISPLAYS, DEFAULTS)).toEqual({ width: 250, height: 240 });
     expect(pickStartBounds({ width: 250, height: 240 }, DISPLAYS, DEFAULTS)).toEqual({ width: 250, height: 240 });
+  });
+
+  it('falls back to defaults when saved bounds have zero size', () => {
+    expect(pickStartBounds({ x: 0, y: 0, width: 0, height: 0 }, DISPLAYS, DEFAULTS)).toEqual({ width: 250, height: 240 });
   });
 });
