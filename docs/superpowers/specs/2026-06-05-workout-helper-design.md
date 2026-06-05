@@ -79,7 +79,7 @@ interface OverlayHost {
 ## 3. Data model (generic, HIIT-ready)
 
 ```ts
-type Intensity = 'easy' | 'medium' | 'hard' | 'allout';   // → color + default tone
+type Intensity = 'easy' | 'medium' | 'hard' | 'allout';   // → color + default tone + recommended spm
 
 type Segment = {
   id: string;
@@ -99,6 +99,19 @@ One core type: an ordered list of segments. Rowing uses the four intensities.
 Future HIIT adds per-segment `label`s and new generator types without changing
 this model.
 
+Each intensity carries fixed display metadata (a lookup table, not stored per
+segment), including a **recommended stroke rate (spm)** shown in the overlay:
+
+| Intensity | Color  | Recommended spm |
+| --------- | ------ | --------------- |
+| Easy      | green  | 24              |
+| Medium    | amber  | 26              |
+| Hard      | orange | 28              |
+| All-out   | red    | 30–32           |
+
+The all-out target is 30, with 32 as the "extra hard" top end. Stroke rates are
+fixed in v1 (per-template/per-segment overrides are a possible future addition).
+
 ## 4. Generator (rowing, v1)
 
 `generate(totalMin: number, options?, seed?) → Segment[]`
@@ -114,8 +127,9 @@ Push rules:
 
 - Hard and all-out pushes each range from ~20s up to **150s (2.5 min)**, varied.
 - All-out appears **less frequently** than hard.
-- Rests run ~1–2× the preceding push; **all-out gets fuller (easy) recovery**,
-  hard often gets medium (active) recovery.
+- Rests run **0.5–1× the preceding push** — all-out tends toward the upper end
+  (~1×) for fuller recovery, hard toward the lower end (~0.5×). Recovery rests
+  are easy; active rests are medium.
 - The mix targets a sensible overall work : rest ratio.
 
 Behavior:
@@ -163,7 +177,8 @@ Voice cues are deferred but slot in here later.
 Renders engine state into the `Document` provided by `OverlayHost`. Two density
 modes with a **toggle** (preference persisted):
 
-- **Minimal pill** — intensity word, big countdown, segment progress bar.
+- **Minimal pill** — intensity word, big countdown, recommended spm, segment
+  progress bar.
 - **Coach card** — adds "next up", session progress, and block count, with
   always-visible controls.
 
@@ -171,6 +186,8 @@ Shared behavior:
 
 - Color-coded intensities: easy = green, medium = amber, hard = orange,
   all-out = red.
+- **Recommended stroke rate (spm)** shown next to the intensity (e.g. "Hard ·
+  28 spm", "All-out · 30–32 spm"), from the intensity metadata table in §3.
 - Countdown **emphasized** (size + color) during hard / all-out; calmer during
   easy / medium rests.
 - Color **flash + tone** on transitions.
@@ -226,7 +243,7 @@ Unit tests cover the pure logic:
 
 - **generator** — valid sequence; respects total within tolerance; includes
   warmup, cooldown, at least one hard and one all-out; pushes within the 20–150s
-  bound; sane work : rest ratio; deterministic for a given seed.
+  bound; each rest is 0.5–1× its preceding push; deterministic for a given seed.
 - **sessionEngine** — transitions, pause / resume accuracy via an injected
   clock, skip next / prev, completion.
 - **storage** — save / load / delete templates and prefs.
@@ -251,9 +268,10 @@ UI and engine).
 
 ## 15. v1 scope vs. deferred
 
-**In scope:** generic interval engine, rowing generator (pushes up to 2.5 min),
-template editor with save / load, PiP overlay with density toggle, tone cues,
-click-to-pause plus skip / stop.
+**In scope:** generic interval engine, rowing generator (pushes up to 2.5 min,
+rests 0.5–1×), template editor with save / load, PiP overlay with density
+toggle and recommended stroke rate (spm), tone cues, click-to-pause plus
+skip / stop.
 
 **Deferred:** voice cues, global hotkey, menu-bar control, Electron shell
 (behind the seam, ready when needed), HIIT and other workout types, workout
