@@ -75,8 +75,11 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   non-activating `NSPanel`.
 - **Document PiP cannot cross into native-app fullscreen** (browser video only) —
   that limitation is the entire reason the Electron shell exists.
-- **`generator.ts` works in 5-second units**, so every duration is a multiple of 5
-  and the total stays exact (leftover is folded into the easy cooldown). Keep new
+- **`generator.ts` and `pushStyles.ts` work in 5-second units**, so every duration
+  is a multiple of 5. A workout is a fixed skeleton — warm-up (easy→medium) →
+  repeated 7-min pushes separated by 3-min bridges → easy cool-down — supporting
+  only 10/20/30 min (1/2/3 pushes). Any leftover *inside a push* becomes the leading
+  medium "build"; unsupported totals snap to the nearest of 10/20/30. Keep new
   generator logic in units.
 - **`sessionEngine` is driven by `tick()`** off an injectable `Clock`
   (`performance.now()` in prod, a `FakeClock` in tests). `stop()` ends *without* a

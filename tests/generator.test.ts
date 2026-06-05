@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { generate, snapMinutes, SUPPORTED_MINUTES } from '../src/core/generator';
 import { INTENSITY_META } from '../src/core/types';
+import { buildPush } from '../src/core/pushStyles';
+import { createRng } from '../src/core/random';
 
 const total = (segs: { durationSec: number }[]) =>
   segs.reduce((s, x) => s + x.durationSec, 0);
@@ -108,5 +110,19 @@ describe('generate — structure', () => {
     expect(idx).toBeGreaterThan(-1);
     expect(segs[idx - 1]).toMatchObject({ intensity: 'medium', durationSec: 60 });
     expect(INTENSITY_META[segs[idx].intensity].kind).toBe('rest');
+  });
+
+  it('repeats the random push identically across all pushes', () => {
+    const seed = 4;
+    const push = buildPush('random', createRng(seed)).map((b) => `${b.intensity}:${b.durationSec}`);
+    const segs = generate(30, { pushStyle: 'random' }, seed).map((s) => `${s.intensity}:${s.durationSec}`);
+    // Skeleton: warmup(2) + push + bridge(2) + push + bridge(2) + push + cooldown(1)
+    const warmup = 2, bridge = 2, p = push.length;
+    const push1 = segs.slice(warmup, warmup + p);
+    const push2 = segs.slice(warmup + p + bridge, warmup + 2 * p + bridge);
+    const push3 = segs.slice(warmup + 2 * p + 2 * bridge, warmup + 3 * p + 2 * bridge);
+    expect(push1).toEqual(push);
+    expect(push2).toEqual(push);
+    expect(push3).toEqual(push);
   });
 });
