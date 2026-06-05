@@ -32,7 +32,7 @@ describe('setup view', () => {
 
   it('Generate populates the editor with segments', () => {
     mountSetup(container, { storage, onStart: () => {} });
-    (container.querySelector('.setup-minutes') as HTMLInputElement).value = '20';
+    (container.querySelector('.setup-minutes') as HTMLSelectElement).value = '20';
     (container.querySelector('.setup-generate') as HTMLButtonElement).click();
     expect(container.querySelectorAll('.seg-row').length).toBeGreaterThan(0);
   });
@@ -40,7 +40,7 @@ describe('setup view', () => {
   it('Start hands the current segments to onStart', () => {
     const onStart = vi.fn();
     mountSetup(container, { storage, onStart });
-    (container.querySelector('.setup-minutes') as HTMLInputElement).value = '20';
+    (container.querySelector('.setup-minutes') as HTMLSelectElement).value = '20';
     (container.querySelector('.setup-generate') as HTMLButtonElement).click();
     (container.querySelector('.setup-start') as HTMLButtonElement).click();
     expect(onStart).toHaveBeenCalledOnce();
@@ -49,7 +49,7 @@ describe('setup view', () => {
 
   it('Save persists the edited segments as a template', () => {
     mountSetup(container, { storage, onStart: () => {} });
-    (container.querySelector('.setup-minutes') as HTMLInputElement).value = '20';
+    (container.querySelector('.setup-minutes') as HTMLSelectElement).value = '20';
     (container.querySelector('.setup-generate') as HTMLButtonElement).click();
     (container.querySelector('.setup-name') as HTMLInputElement).value = 'My session';
     (container.querySelector('.setup-save') as HTMLButtonElement).click();
@@ -62,5 +62,6 @@ describe('setup view', () => {
     expect(select.tagName).toBe('SELECT');
     const values = Array.from(select.options).map((o) => o.value);
     expect(values).toEqual(['10', '20', '30']);
+    expect(select.value).toBe('20'); // default pref lastTotalMin=20 is pre-selected
   });
 });
