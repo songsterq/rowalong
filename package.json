@@ -16,9 +16,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "spike:electron": "electron electron/main.cjs"
   },
   "devDependencies": {
+    "electron": "^42.3.3",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
