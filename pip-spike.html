@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PiP Spike</title>
+  </head>
+  <body style="font-family: system-ui; padding: 2rem;">
+    <h1>Document PiP fullscreen spike</h1>
+    <p>Click the button, then switch to a native fullscreen app (Netflix.app / Apple TV / QuickTime).</p>
+    <button id="open">Open overlay</button>
+    <script>
+      const btn = document.getElementById('open');
+      btn.addEventListener('click', async () => {
+        if (!('documentPictureInPicture' in window)) {
+          alert('Document Picture-in-Picture not supported in this browser.');
+          return;
+        }
+        // @ts-ignore - no standard TS types yet
+        const pip = await window.documentPictureInPicture.requestWindow({ width: 220, height: 120 });
+        const box = pip.document.createElement('div');
+        box.style.cssText =
+          'font-family:system-ui;height:100%;display:flex;flex-direction:column;' +
+          'align-items:center;justify-content:center;background:#ff4d4f;color:#fff;';
+        const label = pip.document.createElement('div');
+        label.textContent = 'ALL OUT';
+        label.style.cssText = 'font-weight:800;letter-spacing:.05em;';
+        const count = pip.document.createElement('div');
+        count.style.cssText = 'font-size:48px;font-weight:800;font-variant-numeric:tabular-nums;';
+        box.append(label, count);
+        pip.document.body.style.margin = '0';
+        pip.document.body.append(box);
+        let n = 30;
+        count.textContent = '0:' + String(n).padStart(2, '0');
+        const id = setInterval(() => {
+          n = n <= 0 ? 30 : n - 1;
+          count.textContent = '0:' + String(n).padStart(2, '0');
+        }, 1000);
+        pip.addEventListener('pagehide', () => clearInterval(id));
+      });
+    </script>
+  </body>
+</html>
