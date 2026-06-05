@@ -1,0 +1,32 @@
+{
+  "name": "workout-helper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "spike:electron": "electron electron/main.cjs",
+    "electron:dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:5173 && electron electron/app.cjs\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "electron": "^42.3.3",
+    "jsdom": "^29.1.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8",
+    "wait-on": "^9.0.10"
+  }
+}
