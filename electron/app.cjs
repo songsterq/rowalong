@@ -21,6 +21,7 @@ const DEV_URL = process.env.WH_DEV_URL || 'http://localhost:5173';
 let setupWin = null;
 let overlayWin = null;
 
+// Overlay window default size + enforced minimum (Electron minWidth/minHeight).
 const OVERLAY_DEFAULTS = { width: 250, height: 240, minWidth: 200, minHeight: 180 };
 
 // Persist the overlay window's last bounds in userData (the renderer's localStorage
@@ -92,7 +93,9 @@ function openOverlay(payload) {
 
   // Remember where the user parks/sizes the overlay. 'moved'/'resized' fire once
   // when the drag/resize finishes, so there's no per-pixel write thrashing.
-  const saveBounds = () => writeSavedBounds(overlayWin.getBounds());
+  const saveBounds = () => {
+    if (overlayWin && !overlayWin.isDestroyed()) writeSavedBounds(overlayWin.getBounds());
+  };
   overlayWin.on('moved', saveBounds);
   overlayWin.on('resized', saveBounds);
 
