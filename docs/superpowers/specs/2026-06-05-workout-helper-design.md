@@ -273,6 +273,37 @@ rests 0.5–1×), template editor with save / load, PiP overlay with density
 toggle and recommended stroke rate (spm), tone cues, click-to-pause plus
 skip / stop.
 
-**Deferred:** voice cues, global hotkey, menu-bar control, Electron shell
-(behind the seam, ready when needed), HIIT and other workout types, workout
-history / stats.
+**Deferred:** voice cues, global hotkey, menu-bar control, HIIT and other
+workout types, workout history / stats.
+
+## 16. Addendum (2026-06-05) — gate outcome & Electron shell
+
+**Step 0 gate result:** Document Picture-in-Picture floats over **browser** video
+(YouTube / Prime web) ✅ but **not** over another app's **native macOS
+fullscreen** (Apple TV.app) ❌ — web content can't set the required window
+collection behavior. A standalone Electron spike (`electron/main.cjs`) using
+`setAlwaysOnTop(true, 'screen-saver')` +
+`setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })`
+was confirmed to float over Apple TV fullscreen ✅. So the planned Electron
+shell is now built.
+
+**Architecture (two-window handoff).** Electron can't return a same-process
+`Document` across a separate window, so the PiP `OverlayHost.open()→Document`
+shape doesn't map across processes. Instead:
+
+- **Setup window** — the existing web app. On Start, if `window.electronAPI`
+  exists, it hands `{ segments, prefs }` to the main process instead of opening
+  PiP.
+- **Overlay window** — a frameless, transparent, always-on-top window (the
+  verified flags) that *runs the session itself*: `src/overlay-entry.ts` creates
+  the `SessionEngine` + `TonePlayer`, mounts the existing `overlayView`, runs the
+  tick loop, and tells main to close it on stop/finish.
+- **Main process** (`electron/app.cjs`) creates both windows and relays two IPC
+  messages (`start-session`, `stop-session`); `electron/preload.cjs` exposes the
+  typed `window.electronAPI` bridge (`src/electron.d.ts`).
+
+The entire core (generator, engine, storage, audio) and overlay UI are reused
+unchanged; only the host wiring differs. The **browser/PiP build still works**
+and coexists (zero-install path for browser-only sessions). Dev launch:
+`npm run electron:dev` (Vite + Electron). **Deferred:** packaging a
+double-click `.app` (electron-builder); revisit dock/accessory behavior then.

@@ -88,6 +88,12 @@ function showReopen(engine: SessionEngine) {
 }
 
 async function startSession(segments: Segment[]) {
+  if (window.electronAPI) {
+    // Electron: hand the session off to the native always-on-top overlay window,
+    // which floats over native-app fullscreen (where PiP can't).
+    window.electronAPI.startSession({ segments, prefs: storage.getPrefs() });
+    return;
+  }
   tearingDown = false;
   const engine = new SessionEngine(segments);
   tone.unlock(); // user gesture (Start click)
