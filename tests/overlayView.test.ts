@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { formatCountdown, spmText, mountOverlay } from '../src/ui/overlayView';
+import { formatCountdown, spmText, mountOverlay, densityIcon } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
 
 describe('formatCountdown', () => {
@@ -60,5 +60,30 @@ describe('mountOverlay', () => {
     mountOverlay(document, engine as never, { density: 'pill' });
     (document.querySelector('.ov-root') as HTMLElement).click();
     expect(engine.calls).toContain('pause');
+  });
+});
+
+describe('densityIcon', () => {
+  it('maps pill→expand and coach→collapse, never the stop glyph', () => {
+    expect(densityIcon('pill')).toBe('⤢');
+    expect(densityIcon('coach')).toBe('⤡');
+    expect(densityIcon('pill')).not.toBe('⏹');
+    expect(densityIcon('coach')).not.toBe('⏹');
+  });
+});
+
+describe('density toggle button', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('shows the state-aware glyph on mount and updates via setDensity', () => {
+    const engine = fakeEngine(runningState);
+    const mounted = mountOverlay(document, engine as never, { density: 'pill' });
+    const btn = document.querySelector('[data-act="density"]') as HTMLElement;
+    expect(btn.textContent).toBe('⤢');
+    expect(btn.getAttribute('title')).toBe('Expand');
+
+    mounted.setDensity('coach');
+    expect(btn.textContent).toBe('⤡');
+    expect(btn.getAttribute('title')).toBe('Collapse');
   });
 });

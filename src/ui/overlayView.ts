@@ -14,6 +14,11 @@ export function spmText(i: Intensity): string {
   return `${meta.label} · ${meta.spmLabel} spm`;
 }
 
+export function densityIcon(d: Density): string {
+  // pill = compact, so the action is "expand" to coach; coach = expanded, action "collapse".
+  return d === 'coach' ? '⤡' : '⤢';
+}
+
 export const OVERLAY_CSS = `
   .ov-root { font-family: -apple-system, system-ui, sans-serif; color:#fff;
     border-radius:16px; padding:16px 18px; background:rgba(18,18,20,.92);
@@ -78,12 +83,19 @@ export function mountOverlay(
       <button data-act="prev" title="Previous">⏮</button>
       <button data-act="pause" title="Pause/Resume">⏯</button>
       <button data-act="next" title="Next">⏭</button>
-      <button data-act="density" title="Toggle density">▣</button>
+      <button data-act="density"></button>
       <button data-act="stop" title="Stop">⏹</button>
     </div>`;
   doc.body.appendChild(root);
 
   const $ = (sel: string) => root.querySelector(sel) as HTMLElement;
+
+  const densityBtn = root.querySelector('[data-act="density"]') as HTMLButtonElement;
+  const syncDensityBtn = (d: Density) => {
+    densityBtn.textContent = densityIcon(d);
+    densityBtn.title = d === 'coach' ? 'Collapse' : 'Expand';
+  };
+  syncDensityBtn(opts.density);
 
   const apply = (state: SessionState) => {
     root.dataset.status = state.status;
@@ -158,6 +170,7 @@ export function mountOverlay(
     },
     setDensity(d: Density) {
       root.dataset.density = d;
+      syncDensityBtn(d);
     },
   };
 }
