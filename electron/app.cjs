@@ -81,6 +81,12 @@ ipcMain.on('stop-session', () => {
 });
 
 app.whenReady().then(() => {
+  // Accessory app (no Dock icon). This replicates the verified spike: ONLY as an
+  // accessory (UIElement) process does the overlay's setVisibleOnAllWorkspaces
+  // ({ visibleOnFullScreen: true, skipTransformProcessType: true }) actually
+  // float over another app's native fullscreen. As a normal foreground app the
+  // same flags float over nothing.
+  if (app.dock) app.dock.hide();
   createSetupWindow();
   app.on('activate', () => {
     if (!setupWin) createSetupWindow();
@@ -88,5 +94,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // No Dock icon to reactivate from, so quit when the last window closes.
+  app.quit();
 });
