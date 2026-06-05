@@ -1,6 +1,6 @@
 import { Segment, Template, makeId } from '../core/types';
 import { Storage, Density } from '../core/storage';
-import { generate } from '../core/generator';
+import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
 import { starterTemplates } from '../core/starters';
 import { renderEditor, readEditor } from './segmentEditor';
 
@@ -18,7 +18,12 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
       <section>
         <h2>Build</h2>
         <label>Total minutes
-          <input class="setup-minutes" type="number" min="1" value="${prefs.lastTotalMin}" />
+          <select class="setup-minutes">
+            ${SUPPORTED_MINUTES.map(
+              (m) =>
+                `<option value="${m}" ${m === snapMinutes(prefs.lastTotalMin) ? 'selected' : ''}>${m}</option>`,
+            ).join('')}
+          </select>
         </label>
         <button class="setup-generate">Generate</button>
         <button class="setup-regenerate">Regenerate</button>
@@ -41,12 +46,12 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
     </div>`;
 
   const editor = container.querySelector('.setup-editor') as HTMLElement;
-  const minutesEl = container.querySelector('.setup-minutes') as HTMLInputElement;
+  const minutesEl = container.querySelector('.setup-minutes') as HTMLSelectElement;
   const nameEl = container.querySelector('.setup-name') as HTMLInputElement;
   let seed = 1;
 
   const doGenerate = () => {
-    const mins = Math.max(1, Number(minutesEl.value) || 1);
+    const mins = snapMinutes(Number(minutesEl.value) || 20);
     opts.storage.setPrefs({ lastTotalMin: mins });
     renderEditor(editor, generate(mins, {}, seed));
   };

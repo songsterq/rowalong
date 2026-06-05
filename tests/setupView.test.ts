@@ -55,4 +55,12 @@ describe('setup view', () => {
     (container.querySelector('.setup-save') as HTMLButtonElement).click();
     expect(storage.listTemplates().some((t) => t.name === 'My session')).toBe(true);
   });
+
+  it('offers only 10/20/30-minute durations', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const select = container.querySelector('.setup-minutes') as HTMLSelectElement;
+    expect(select.tagName).toBe('SELECT');
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(['10', '20', '30']);
+  });
 });
