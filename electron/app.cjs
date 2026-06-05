@@ -52,20 +52,17 @@ function openOverlay(payload) {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
   });
 
+  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  overlayWin.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+    skipTransformProcessType: true,
+  });
+
   overlayWin.loadURL(`${DEV_URL}/overlay.html`);
   overlayWin.webContents.once('did-finish-load', () => {
     overlayWin.webContents.send('session-payload', payload);
   });
   overlayWin.showInactive(); // show without stealing focus from the video app
-
-  // Float over other apps' native fullscreen while staying a normal Dock app.
-  // Omitting skipTransformProcessType lets Electron briefly flip the app's
-  // activation policy (Regular -> Accessory -> Regular) to enable the behavior,
-  // which keeps the Dock icon at the cost of a one-time flicker. Set once, after
-  // show, so the transform sticks (mitigates electron/electron#36364).
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
-  overlayWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-
   overlayWin.on('closed', () => {
     overlayWin = null;
   });
@@ -84,9 +81,12 @@ ipcMain.on('stop-session', () => {
 });
 
 app.whenReady().then(() => {
-  // Normal Dock app. The overlay floats over native fullscreen via Electron's
-  // activation-policy transform in openOverlay() (see note there), so we do NOT
-  // hide the Dock here.
+  // Accessory app (no Dock icon). This replicates the verified spike: ONLY as an
+  // accessory (UIElement) process does the overlay's setVisibleOnAllWorkspaces
+  // ({ visibleOnFullScreen: true, skipTransformProcessType: true }) actually
+  // float over another app's native fullscreen. As a normal foreground app the
+  // same flags float over nothing.
+  if (app.dock) app.dock.hide();
   createSetupWindow();
   app.on('activate', () => {
     if (!setupWin) createSetupWindow();
@@ -94,5 +94,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // No Dock icon to reactivate from, so quit when the last window closes.
+  app.quit();
 });

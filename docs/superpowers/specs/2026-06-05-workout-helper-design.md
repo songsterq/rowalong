@@ -306,15 +306,16 @@ The entire core (generator, engine, storage, audio) and overlay UI are reused
 unchanged; only the host wiring differs. The **browser/PiP build still works**
 and coexists (zero-install path for browser-only sessions).
 
-**Window strategy:** the app is a normal **Dock** app (Regular activation
-policy). To float the overlay over another app's native fullscreen, the overlay
-window calls `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })`
-*without* `skipTransformProcessType` — letting Electron briefly flip the
-activation policy to Accessory and back. This keeps the Dock icon (and Cmd+Q) at
-the cost of a one-time flicker when the overlay opens. (A permanent dock-less
-accessory app via `app.dock.hide()` also works and avoids the flicker — verified
-by the spike — but we chose the Dock icon.) Flags are set once, after the window
-is shown, to mitigate the known needs-focus quirk (electron/electron#36364).
+**Window strategy (final):** the overlay runs as part of a **dock-less
+accessory** app (`app.dock.hide()`) with the overlay using
+`setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })`.
+This is the only configuration found to **reliably float over Apple TV native
+fullscreen**. A normal **Dock-icon** variant (relying on Electron's
+Regular↔Accessory activation-policy transform by omitting
+`skipTransformProcessType`) was tried but **broke floating over Apple TV in
+practice**, so it was reverted. Trade-off accepted: **no Dock icon**; the app
+quits when its last window closes (or Ctrl-C in the dev terminal).
 
 Dev launch: `npm run electron:dev` (Vite + Electron). **Deferred:** packaging a
-double-click `.app` (electron-builder).
+double-click `.app` (electron-builder) — and revisit a quit affordance for the
+accessory app then.
