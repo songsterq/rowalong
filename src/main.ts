@@ -16,6 +16,7 @@ let mounted: MountedOverlay | null = null;
 let fallbackEl: HTMLElement | null = null;
 let host: PipOverlayHost | null = null;
 let tearingDown = false;
+let sessionActive = false;
 let currentSegments: Segment[] = [];
 
 function wireAudio(engine: SessionEngine) {
@@ -96,6 +97,10 @@ async function startSession(segments: Segment[]) {
     window.electronAPI.startSession({ segments, prefs: storage.getPrefs() });
     return;
   }
+  // Ignore repeat Start clicks: a session is already running (or paused with the
+  // reopen bar showing). Re-running would orphan the live overlay/engine and throw.
+  if (sessionActive) return;
+  sessionActive = true;
   tearingDown = false;
   currentSegments = segments;
   const engine = new SessionEngine(segments);
@@ -125,6 +130,7 @@ async function startSession(segments: Segment[]) {
 
 function endSession() {
   tearingDown = true;
+  sessionActive = false;
   cancelAnimationFrame(rafId);
   mounted?.unmount();
   mounted = null;
