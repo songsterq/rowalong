@@ -30,6 +30,7 @@ function runSession(payload: SessionPayload) {
   let density: Density = prefs.density;
   const mounted = mountOverlay(document, engine, {
     density,
+    segments,
     onToggleDensity: () => {
       density = density === 'pill' ? 'coach' : 'pill';
       storage.setPrefs({ density }); // shared origin → setup picks it up next time

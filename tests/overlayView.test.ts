@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { formatCountdown, spmText, mountOverlay, densityIcon } from '../src/ui/overlayView';
+import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
+import type { Segment } from '../src/core/types';
 
 describe('formatCountdown', () => {
   it('formats m:ss with ceil', () => {
@@ -11,10 +12,28 @@ describe('formatCountdown', () => {
   });
 });
 
-describe('spmText', () => {
-  it('renders label and recommended spm', () => {
-    expect(spmText('hard')).toBe('Hard · 28 spm');
-    expect(spmText('allout')).toBe('All-out · 30–32 spm');
+describe('spmLabel', () => {
+  it('renders just the recommended spm, with no intensity word', () => {
+    expect(spmLabel('easy')).toBe('24 spm');
+    expect(spmLabel('hard')).toBe('28 spm');
+    expect(spmLabel('allout')).toBe('30–32 spm');
+  });
+});
+
+describe('comingUpLabel', () => {
+  it('names the next segment by its label, falling back to intensity', () => {
+    expect(comingUpLabel({ id: 'n', intensity: 'hard', durationSec: 60 })).toBe('Coming up: Hard');
+    expect(comingUpLabel({ id: 'n', intensity: 'allout', durationSec: 60 })).toBe(
+      'Coming up: All-out',
+    );
+    expect(
+      comingUpLabel({ id: 'n', intensity: 'easy', durationSec: 60, label: 'Warm up' }),
+    ).toBe('Coming up: Warm up');
+  });
+
+  it('is empty when there is no next segment', () => {
+    expect(comingUpLabel(null)).toBe('');
+    expect(comingUpLabel(undefined)).toBe('');
   });
 });
 
@@ -51,7 +70,7 @@ describe('mountOverlay', () => {
     const engine = fakeEngine(runningState);
     mountOverlay(document, engine as never, { density: 'coach' });
     expect(document.querySelector('.ov-label')?.textContent).toContain('Hard');
-    expect(document.querySelector('.ov-spm')?.textContent).toBe('Hard · 28 spm');
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
     expect(document.querySelector('.ov-count')?.textContent).toBe('0:27');
   });
 
@@ -184,5 +203,40 @@ describe('drag vs click on the overlay body', () => {
     root.dispatchEvent(ptr('pointermove', 200, 200));
     expect(deltas).toEqual([]);
     expect(engine.calls).not.toContain('pause');
+  });
+});
+
+const statusSegments: Segment[] = [
+  { id: 's0', intensity: 'easy', durationSec: 60 },
+  { id: 's1', intensity: 'hard', durationSec: 60 },
+  { id: 's2', intensity: 'allout', durationSec: 60 },
+];
+
+describe('status line (spm + coming up)', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('shows the spm and the next segment when there is one', () => {
+    // runningState.currentIndex === 1 → next is statusSegments[2] (all-out)
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach', segments: statusSegments });
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm · Coming up: All-out');
+  });
+
+  it('shows only the spm on the final segment', () => {
+    const lastState: SessionState = {
+      ...runningState,
+      currentIndex: 2,
+      segment: statusSegments[2],
+      totalSegments: 3,
+    };
+    const engine = fakeEngine(lastState);
+    mountOverlay(document, engine as never, { density: 'coach', segments: statusSegments });
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('30–32 spm');
+  });
+
+  it('shows only the spm when no segments are provided', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
   });
 });
