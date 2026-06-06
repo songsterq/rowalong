@@ -13,6 +13,8 @@ export interface ElectronAPI {
   startSession(payload: SessionPayload): void;
   /** Overlay window → main: end the session and close the overlay window. */
   stopSession(): void;
+  /** Overlay window → main: move the overlay window by a screen-px delta. */
+  moveOverlayBy(dx: number, dy: number): void;
   /** Overlay window: receive the session payload from main once after load. */
   onSessionPayload(cb: (payload: SessionPayload) => void): void;
 }

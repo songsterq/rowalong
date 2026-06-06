@@ -98,6 +98,7 @@ function openOverlay(payload) {
   };
   overlayWin.on('moved', saveBounds);
   overlayWin.on('resized', saveBounds);
+  overlayWin.on('close', saveBounds); // JS-driven setPosition may not fire 'moved'
 
   overlayWin.loadURL(`${DEV_URL}/overlay.html`);
   overlayWin.webContents.once('did-finish-load', () => {
@@ -119,6 +120,13 @@ ipcMain.on('stop-session', () => {
     overlayWin = null;
   }
   if (setupWin) setupWin.focus();
+});
+
+ipcMain.on('move-overlay-by', (_event, { dx, dy }) => {
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    const [x, y] = overlayWin.getPosition();
+    overlayWin.setPosition(Math.round(x + dx), Math.round(y + dy));
+  }
 });
 
 app.whenReady().then(() => {
