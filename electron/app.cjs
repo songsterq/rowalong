@@ -8,7 +8,7 @@
 //   setAlwaysOnTop(true, 'screen-saver')
 //   setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
 
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pickStartBounds } = require('./windowBounds.cjs');
@@ -52,6 +52,11 @@ function createSetupWindow() {
     width: 760,
     height: 820,
     title: 'Workout Helper',
+    // Match the app's dark surface: hide the native title bar so the page's own
+    // background fills that strip (traffic lights stay, floating over the content),
+    // and paint the pre-load background the same near-black so there's no flash.
+    titleBarStyle: 'hidden',
+    backgroundColor: '#151310',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
   });
   setupWin.loadURL(DEV_URL);
@@ -136,6 +141,7 @@ app.whenReady().then(() => {
   // float over another app's native fullscreen. As a normal foreground app the
   // same flags float over nothing.
   if (app.dock) app.dock.hide();
+  nativeTheme.themeSource = 'dark'; // dark traffic-light glyphs + native menus
   createSetupWindow();
   app.on('activate', () => {
     if (!setupWin) createSetupWindow();
