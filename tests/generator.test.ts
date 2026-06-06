@@ -1,78 +1,128 @@
 import { describe, it, expect } from 'vitest';
-import { generate } from '../src/core/generator';
+import { generate, snapMinutes, SUPPORTED_MINUTES } from '../src/core/generator';
 import { INTENSITY_META } from '../src/core/types';
+import { buildPush } from '../src/core/pushStyles';
+import { createRng } from '../src/core/random';
 
 const total = (segs: { durationSec: number }[]) =>
   segs.reduce((s, x) => s + x.durationSec, 0);
 
-describe('generate', () => {
-  it('produces a sequence whose total equals the requested time', () => {
+describe('snapMinutes', () => {
+  it('passes the three supported durations through unchanged', () => {
+    expect(SUPPORTED_MINUTES).toEqual([10, 20, 30]);
+    for (const m of SUPPORTED_MINUTES) expect(snapMinutes(m)).toBe(m);
+  });
+
+  it('snaps to the nearest supported, ties rounding up, clamped to 10..30', () => {
+    expect(snapMinutes(2)).toBe(10);
+    expect(snapMinutes(14)).toBe(10);
+    expect(snapMinutes(15)).toBe(20); // tie -> up
+    expect(snapMinutes(25)).toBe(30); // tie -> up
+    expect(snapMinutes(40)).toBe(30);
+  });
+});
+
+describe('generate — structure', () => {
+  it('totals 600 / 1200 / 1800 for 10 / 20 / 30 minutes', () => {
+    expect(total(generate(10, {}, 1))).toBe(600);
+    expect(total(generate(20, {}, 1))).toBe(1200);
+    expect(total(generate(30, {}, 1))).toBe(1800);
+  });
+
+  it('starts with a 60s easy + 60s medium warm-up', () => {
     const segs = generate(20, {}, 1);
-    expect(total(segs)).toBe(20 * 60);
+    expect(segs[0]).toMatchObject({ intensity: 'easy', durationSec: 60 });
+    expect(segs[1]).toMatchObject({ intensity: 'medium', durationSec: 60 });
   });
 
-  it('starts with an easy warmup and ends with an easy cooldown', () => {
+  it('ends with a 60s easy cool-down', () => {
     const segs = generate(30, {}, 1);
-    expect(segs[0].intensity).toBe('easy');
-    expect(segs[segs.length - 1].intensity).toBe('easy');
+    const last = segs[segs.length - 1];
+    expect(last).toMatchObject({ intensity: 'easy', durationSec: 60 });
   });
 
-  it('includes at least one hard and one all-out push for a long session', () => {
-    const segs = generate(30, {}, 1);
-    expect(segs.some((s) => s.intensity === 'hard')).toBe(true);
-    expect(segs.some((s) => s.intensity === 'allout')).toBe(true);
+  it('forces a known style so push regions each total 420s', () => {
+    // crazy = one 420s hard block per push; warm-up(120) + N*420 + (N-1)*180 + cool(60)
+    expect(total(generate(10, { pushStyle: 'crazy' }, 1))).toBe(600);
+    expect(total(generate(20, { pushStyle: 'crazy' }, 1))).toBe(1200);
+    expect(total(generate(30, { pushStyle: 'crazy' }, 1))).toBe(1800);
+
+    const hard = generate(30, { pushStyle: 'crazy' }, 1).filter((s) => s.intensity === 'hard');
+    expect(hard).toHaveLength(3); // exactly one 420s hard push each
+    expect(hard.every((s) => s.durationSec === 420)).toBe(true);
   });
 
-  it('keeps every push within 20–150 seconds', () => {
-    const segs = generate(40, {}, 3);
-    for (const s of segs) {
-      if (INTENSITY_META[s.intensity].kind === 'work') {
-        expect(s.durationSec).toBeGreaterThanOrEqual(20);
-        expect(s.durationSec).toBeLessThanOrEqual(150);
-      }
-    }
+  it('inserts a recovery bridge (medium ceiling) between pushes only', () => {
+    // 20 min has exactly one bridge: medium 60 + easy 120 between the two pushes.
+    const segs = generate(20, { pushStyle: 'crazy' }, 1);
+    // crazy layout: easy60, medium60, [hard420], medium60, easy120, [hard420], easy60
+    expect(segs.map((s) => `${s.intensity}:${s.durationSec}`)).toEqual([
+      'easy:60',
+      'medium:60',
+      'hard:420',
+      'medium:60',
+      'easy:120',
+      'hard:420',
+      'easy:60',
+    ]);
   });
 
-  it('makes all-out less frequent than hard', () => {
-    const segs = generate(40, {}, 3);
-    const hard = segs.filter((s) => s.intensity === 'hard').length;
-    const allout = segs.filter((s) => s.intensity === 'allout').length;
-    expect(hard).toBeGreaterThanOrEqual(allout);
+  it('repeats the same style for every push (steps build appears once per push)', () => {
+    const segs = generate(30, { pushStyle: 'steps' }, 1);
+    // steps pushes start with a 20s medium build; 3 pushes -> 3 such builds,
+    // plus 2 bridges that start with a 60s medium. No other 20s mediums exist.
+    const medium20 = segs.filter((s) => s.intensity === 'medium' && s.durationSec === 20);
+    expect(medium20).toHaveLength(3);
   });
 
-  it('makes each rest 0.5–1× its preceding push', () => {
-    const segs = generate(40, {}, 3);
-    for (let i = 0; i < segs.length - 1; i++) {
-      const cur = segs[i];
-      const nxt = segs[i + 1];
-      const curIsPush = INTENSITY_META[cur.intensity].kind === 'work';
-      const nxtIsRest = INTENSITY_META[nxt.intensity].kind === 'rest';
-      // a rest that directly follows a push (exclude the final cooldown, which can absorb leftover)
-      if (curIsPush && nxtIsRest && i + 1 < segs.length - 1) {
-        expect(nxt.durationSec).toBeGreaterThanOrEqual(Math.ceil(cur.durationSec * 0.5));
-        expect(nxt.durationSec).toBeLessThanOrEqual(cur.durationSec);
-      }
-    }
-  });
-
-  it('is deterministic for a given seed and varies across seeds', () => {
+  it('assigns deterministic ids and is reproducible per seed', () => {
     expect(generate(20, {}, 7)).toEqual(generate(20, {}, 7));
-    expect(generate(20, {}, 7)).not.toEqual(generate(20, {}, 8));
+    expect(generate(20, {}, 7)[0].id).toBe('seg-7-0');
   });
 
-  it('does not crash and stays exact for very short totals', () => {
-    const segs = generate(2, {}, 1);
-    expect(total(segs)).toBe(2 * 60);
-    expect(segs.length).toBeGreaterThan(0);
+  it('varies across seeds', () => {
+    const shape = (segs: ReturnType<typeof generate>) =>
+      segs.map((s) => `${s.intensity}:${s.durationSec}`).join(',');
+    const outs = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => shape(generate(20, {}, s)));
+    expect(new Set(outs).size).toBeGreaterThan(1);
+  });
+
+  it('snaps unsupported totals before generating', () => {
+    expect(total(generate(2, {}, 1))).toBe(600); // -> 10 min
+    expect(total(generate(25, {}, 1))).toBe(1800); // tie -> 30 min
   });
 
   it('makes every segment duration a multiple of 5 seconds', () => {
-    for (const min of [2, 7, 20, 33, 45]) {
-      for (let seed = 1; seed <= 4; seed++) {
+    for (const min of [10, 20, 30]) {
+      for (let seed = 1; seed <= 6; seed++) {
         for (const s of generate(min, {}, seed)) {
           expect(s.durationSec % 5).toBe(0);
         }
       }
     }
+  });
+
+  it('keeps bridge work intensities out — bridges contain only easy/medium', () => {
+    // For any style, the two segments before/after a bridge-easy(120) come from pushes;
+    // assert the bridge pair itself is medium then easy.
+    const segs = generate(20, { pushStyle: 'long' }, 1);
+    const idx = segs.findIndex((s) => s.intensity === 'easy' && s.durationSec === 120);
+    expect(idx).toBeGreaterThan(-1);
+    expect(segs[idx - 1]).toMatchObject({ intensity: 'medium', durationSec: 60 });
+    expect(INTENSITY_META[segs[idx].intensity].kind).toBe('rest');
+  });
+
+  it('repeats the random push identically across all pushes', () => {
+    const seed = 4;
+    const push = buildPush('random', createRng(seed)).map((b) => `${b.intensity}:${b.durationSec}`);
+    const segs = generate(30, { pushStyle: 'random' }, seed).map((s) => `${s.intensity}:${s.durationSec}`);
+    // Skeleton: warmup(2) + push + bridge(2) + push + bridge(2) + push + cooldown(1)
+    const warmup = 2, bridge = 2, p = push.length;
+    const push1 = segs.slice(warmup, warmup + p);
+    const push2 = segs.slice(warmup + p + bridge, warmup + 2 * p + bridge);
+    const push3 = segs.slice(warmup + 2 * p + 2 * bridge, warmup + 3 * p + 2 * bridge);
+    expect(push1).toEqual(push);
+    expect(push2).toEqual(push);
+    expect(push3).toEqual(push);
   });
 });

@@ -1,4 +1,5 @@
 import { Template } from './types';
+import { PushStyle } from './pushStyles';
 
 export type Density = 'pill' | 'coach';
 
@@ -7,6 +8,7 @@ export interface Prefs {
   volume: number; // 0..1
   muted: boolean;
   lastTotalMin: number;
+  lastPushStyle: PushStyle;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -14,6 +16,7 @@ export const DEFAULT_PREFS: Prefs = {
   volume: 0.6,
   muted: false,
   lastTotalMin: 20,
+  lastPushStyle: 'random',
 };
 
 export interface KeyValueStore {

@@ -68,4 +68,8 @@ describe('Storage prefs', () => {
     expect(p.muted).toBe(true);
     expect(p.volume).toBe(DEFAULT_PREFS.volume);
   });
+
+  it('defaults the push strategy to random', () => {
+    expect(DEFAULT_PREFS.lastPushStyle).toBe('random');
+  });
 });
