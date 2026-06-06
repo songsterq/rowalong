@@ -116,9 +116,11 @@ shifts:
    bottom room; pill mode (no caption) keeps the tight 10px. */
 .ov-root[data-density="coach"] .ov-count-row { margin-bottom:24px; }
 /* The bar bottom-aligns with the countdown digits and rises into the space
-   above them; margin-right pulls it in so its caption lines up with the status
-   row ("… left") below. */
-.ov-stroke { position:relative; flex:0 0 auto; margin-right:16px; }
+   above them. In coach mode it pulls in (margin-right) so its caption lines up
+   with the status row ("… left") below; pill mode has no caption, so the bar
+   sits flush to the right edge like the progress bar. */
+.ov-stroke { position:relative; flex:0 0 auto; }
+.ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
 .ov-stroke-track { width:16px; height:62px; border-radius:8px;
   background:rgba(255,255,255,.15); overflow:hidden; display:flex; align-items:flex-end; }
 /* top corners round the fill when the bar is short; bottom corners are clipped

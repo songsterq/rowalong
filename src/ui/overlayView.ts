@@ -70,8 +70,11 @@ export const OVERLAY_CSS = `
      needs extra bottom room; pill mode (no caption) stays tight. */
   .ov-root[data-density="coach"] .ov-count-row { margin-bottom:24px; }
   /* The bar bottom-aligns with the countdown digits and rises into the space
-     above; margin-right pulls it in so its caption lines up with the row below. */
-  .ov-stroke { position:relative; flex:0 0 auto; margin-right:16px; }
+     above. In coach mode it pulls in (margin-right) so its caption lines up with
+     the status row below; pill mode has no caption, so the bar sits flush to the
+     right edge like the progress bar. */
+  .ov-stroke { position:relative; flex:0 0 auto; }
+  .ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
   .ov-stroke-track { width:16px; height:62px; border-radius:8px; background:rgba(255,255,255,.15);
     overflow:hidden; display:flex; align-items:flex-end; }
   .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
