@@ -1,7 +1,7 @@
 {
-  "name": "workout-helper",
+  "name": "rowalong",
   "version": "1.0.0",
-  "description": "",
+  "description": "RowAlong — rowing intervals that ride on top of whatever you're watching.",
   "main": "index.js",
   "directories": {
     "doc": "docs"

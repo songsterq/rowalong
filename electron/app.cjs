@@ -51,7 +51,7 @@ function createSetupWindow() {
   setupWin = new BrowserWindow({
     width: 760,
     height: 820,
-    title: 'Workout Helper',
+    title: 'RowAlong',
     // Match the app's dark surface: hide the native title bar so the page's own
     // background fills that strip (traffic lights stay, floating over the content),
     // and paint the pre-load background the same near-black so there's no flash.

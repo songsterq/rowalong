@@ -67,8 +67,8 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
       <header class="brand">
         <div class="brand-mark">${ICON.waves}</div>
         <div>
-          <h1>Workout Helper</h1>
-          <p>Interval training, always on top of your screen</p>
+          <h1>RowAlong</h1>
+          <p>Rowing intervals that ride on top of whatever you're watching</p>
         </div>
       </header>
 

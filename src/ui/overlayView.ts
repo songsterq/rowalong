@@ -43,6 +43,15 @@ export const OVERLAY_CSS = `
   .ov-root:hover .ov-ctrls { display:flex; }
   .ov-ctrls { gap:12px; justify-content:center; margin-top:10px; font-size:16px; }
   .ov-ctrls button { background:none; border:none; color:#fff; cursor:pointer; font-size:16px; opacity:.85; }
+  /* Brand signature: a quiet footer that reveals with the controls (coach mode or
+     hover), so heads-down pill mode stays pure numbers and the countdown never shifts. */
+  .ov-brand { display:none; align-items:center; justify-content:center; gap:6px;
+    margin-top:12px; font-size:10px; font-weight:700; letter-spacing:.14em;
+    text-transform:uppercase; opacity:.4; }
+  .ov-brand svg { width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:2;
+    stroke-linecap:round; stroke-linejoin:round; }
+  .ov-root[data-density="coach"] .ov-brand { display:flex; }
+  .ov-root:hover .ov-brand { display:flex; }
   .ov-paused-tag { display:none; font-size:11px; opacity:.8; margin-top:4px; }
   .ov-root[data-status="paused"] .ov-paused-tag { display:block; }
   @keyframes ov-flash { from { background:rgba(255,255,255,.35);} to { background:rgba(18,18,20,.92);} }
@@ -95,6 +104,10 @@ export function mountOverlay(
       <button data-act="next" title="Next">⏭</button>
       <button data-act="density"></button>
       <button data-act="stop" title="Stop">⏹</button>
+    </div>
+    <div class="ov-brand">
+      <svg viewBox="0 0 24 24"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>
+      <span>RowAlong</span>
     </div>`;
   doc.body.appendChild(root);
 
