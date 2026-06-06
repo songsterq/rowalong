@@ -65,9 +65,14 @@ export const OVERLAY_CSS = `
      recovery (33→100%). Period = 60/spm via --stroke-period; pure CSS so it
      runs the same in PiP and Electron and pauses with the card. */
   .ov-count-row { display:flex; align-items:flex-end; justify-content:space-between;
-    gap:14px; margin:6px 0 10px; }
-  .ov-stroke { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; }
-  .ov-stroke-track { width:16px; height:46px; border-radius:8px; background:rgba(255,255,255,.15);
+    gap:14px; margin:6px 0 10px; position:relative; }
+  /* Coach mode floats the DRIVE/RECOVER caption just below the bar, so the row
+     needs extra bottom room; pill mode (no caption) stays tight. */
+  .ov-root[data-density="coach"] .ov-count-row { margin-bottom:24px; }
+  /* The bar bottom-aligns with the countdown digits and rises into the space
+     above; margin-right pulls it in so its caption lines up with the row below. */
+  .ov-stroke { position:relative; flex:0 0 auto; margin-right:16px; }
+  .ov-stroke-track { width:16px; height:62px; border-radius:8px; background:rgba(255,255,255,.15);
     overflow:hidden; display:flex; align-items:flex-end; }
   .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
     background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
@@ -76,7 +81,8 @@ export const OVERLAY_CSS = `
     33%  { height:100%; animation-timing-function: cubic-bezier(.4,0,.6,1); }
     100% { height:10%; }
   }
-  .ov-stroke-cap { display:none; position:relative; height:11px; width:100%; text-align:center;
+  .ov-stroke-cap { display:none; position:absolute; top:100%; left:0; right:0; margin-top:5px;
+    height:11px; text-align:center;
     font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
   .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
   .ov-stroke-cap > span { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }

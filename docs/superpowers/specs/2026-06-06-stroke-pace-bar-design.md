@@ -110,10 +110,16 @@ shifts:
 
 ```css
 .ov-count-row { display:flex; align-items:flex-end; justify-content:space-between;
-  gap:14px; margin:6px 0 10px; }
+  gap:14px; margin:6px 0 10px; position:relative; }
 .ov-count { margin:0; }                 /* row now owns the margin */
-.ov-stroke { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; }
-.ov-stroke-track { width:16px; height:46px; border-radius:8px;
+/* Coach mode floats the caption just below the bar, so the row needs extra
+   bottom room; pill mode (no caption) keeps the tight 10px. */
+.ov-root[data-density="coach"] .ov-count-row { margin-bottom:24px; }
+/* The bar bottom-aligns with the countdown digits and rises into the space
+   above them; margin-right pulls it in so its caption lines up with the status
+   row ("… left") below. */
+.ov-stroke { position:relative; flex:0 0 auto; margin-right:16px; }
+.ov-stroke-track { width:16px; height:62px; border-radius:8px;
   background:rgba(255,255,255,.15); overflow:hidden; display:flex; align-items:flex-end; }
 /* top corners round the fill when the bar is short; bottom corners are clipped
    by the track's overflow:hidden. */
@@ -136,7 +142,8 @@ Caption (coach-only) — two stacked spans cross-fade on the same period so it
 reads `DRIVE` during the first third, `RECOVER` after, with no JS:
 
 ```css
-.ov-stroke-cap { display:none; position:relative; height:11px;
+.ov-stroke-cap { display:none; position:absolute; top:100%; left:0; right:0; margin-top:5px;
+  height:11px; text-align:center;
   font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
 .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
 .ov-stroke-cap > span { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }
@@ -184,13 +191,13 @@ round-trips custom-property strings exactly but normalizes some color shorthands
 
 ## Non-functional notes
 
-- **No footprint change while running.** In pill mode the widget is just the
-  46px track — shorter than the 54px countdown — so the row height is governed by
-  the countdown and nothing shifts. In coach mode the column adds the 6px gap +
-  11px caption (≈63px total), so a pill→coach toggle grows the card by ~9px — but
-  that only happens on a density change, which the Electron `ResizeObserver` hug
-  already catches. Countdown ticks never change height, so the observer stays
-  quiet during normal running.
+- **Footprint.** In pill mode the widget is the 62px track, bottom-aligned with
+  the 54px countdown and rising ~8px above it into the existing whitespace below
+  the spm line — the row height is still governed by the countdown's own box, so
+  nothing shifts during running. In coach mode the floated caption needs ~14px of
+  extra bottom margin on the count row; that toggles only on a density change,
+  which the Electron `ResizeObserver` hug already catches. Countdown ticks never
+  change height, so the observer stays quiet while running.
 - **Host-agnostic.** Pure CSS keyframes run identically in the browser Document
   PiP overlay and the Electron overlay window. No new timers, no dependence on
   the engine tick rate.
