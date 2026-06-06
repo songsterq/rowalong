@@ -109,3 +109,64 @@ describe('play/pause button is state-aware', () => {
     expect(btn.getAttribute('title')).toBe('Resume');
   });
 });
+
+function ptr(type: string, screenX: number, screenY: number) {
+  return new MouseEvent(type, { screenX, screenY, button: 0, bubbles: true });
+}
+
+describe('drag vs click on the overlay body', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('dragging past the threshold calls onDrag with deltas and does not pause', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    root.dispatchEvent(ptr('pointerdown', 100, 100));
+    root.dispatchEvent(ptr('pointermove', 110, 105)); // 11.2px > 4px threshold
+    root.dispatchEvent(ptr('pointermove', 120, 105)); // +10, +0
+    root.dispatchEvent(ptr('pointerup', 120, 105));
+    expect(deltas).toEqual([[10, 5], [10, 0]]);
+    expect(engine.calls).not.toContain('pause');
+  });
+
+  it('a sub-threshold press is a click that toggles pause', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    root.dispatchEvent(ptr('pointerdown', 100, 100));
+    root.dispatchEvent(ptr('pointermove', 102, 101)); // 2.2px < 4px threshold
+    root.dispatchEvent(ptr('pointerup', 102, 101));
+    expect(deltas).toEqual([]);
+    expect(engine.calls).toContain('pause');
+  });
+
+  it('pointerdown on a control does not start a drag', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'coach',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const nextBtn = document.querySelector('[data-act="next"]') as HTMLElement;
+    nextBtn.dispatchEvent(ptr('pointerdown', 100, 100));
+    nextBtn.dispatchEvent(ptr('pointermove', 130, 130));
+    nextBtn.dispatchEvent(ptr('pointerup', 130, 130));
+    expect(deltas).toEqual([]);
+    expect(engine.calls).not.toContain('pause');
+  });
+
+  it('without onDrag, a body click still toggles pause', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    (document.querySelector('.ov-root') as HTMLElement).click();
+    expect(engine.calls).toContain('pause');
+  });
+});

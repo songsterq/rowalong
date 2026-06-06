@@ -48,6 +48,9 @@ export interface OverlayOpts {
   density: Density;
   onToggleDensity?: () => void;
   onStop?: () => void;
+  /** Drag the overlay body to reposition the host window. dx/dy are screen-px
+   *  deltas since the last move. When omitted, the body is click-only (no drag). */
+  onDrag?: (dx: number, dy: number) => void;
 }
 
 type OverlayEngine = Pick<
@@ -132,12 +135,57 @@ export function mountOverlay(
     if (e.type === 'transition') flash();
   });
 
-  root.addEventListener('click', (ev) => {
-    if ((ev.target as HTMLElement).closest('.ov-ctrls')) return; // controls handled below
+  const DRAG_THRESHOLD_PX = 4;
+  const togglePause = () => {
     const st = engine.getState();
     if (st.status === 'paused') engine.resume();
     else engine.pause();
-  });
+  };
+
+  if (opts.onDrag) {
+    root.style.cursor = 'grab';
+    let active = false;
+    let dragging = false;
+    let startX = 0, startY = 0, lastX = 0, lastY = 0;
+
+    root.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      if ((ev.target as HTMLElement).closest('.ov-ctrls')) return;
+      active = true;
+      dragging = false;
+      startX = lastX = ev.screenX;
+      startY = lastY = ev.screenY;
+      try { root.setPointerCapture(ev.pointerId); } catch { /* jsdom / no pointerId */ }
+    });
+
+    root.addEventListener('pointermove', (ev) => {
+      if (!active) return;
+      if (!dragging && Math.hypot(ev.screenX - startX, ev.screenY - startY) > DRAG_THRESHOLD_PX) {
+        dragging = true;
+        root.style.cursor = 'grabbing';
+      }
+      if (dragging) {
+        opts.onDrag!(ev.screenX - lastX, ev.screenY - lastY);
+        lastX = ev.screenX;
+        lastY = ev.screenY;
+      }
+    });
+
+    const finish = (ev: PointerEvent) => {
+      if (!active) return;
+      active = false;
+      root.style.cursor = 'grab';
+      try { root.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+      if (!dragging) togglePause(); // a press with no real movement is a click
+    };
+    root.addEventListener('pointerup', finish);
+    root.addEventListener('pointercancel', finish);
+  } else {
+    root.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).closest('.ov-ctrls')) return;
+      togglePause();
+    });
+  }
 
   $('.ov-ctrls').addEventListener('click', (ev) => {
     const btn = (ev.target as HTMLElement).closest('button');
