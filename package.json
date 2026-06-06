@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "harness": "vitest run -c tools/overlay-harness.config.ts",
     "spike:electron": "electron electron/main.cjs",
     "electron:dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:5173 && electron electron/app.cjs\""
   },

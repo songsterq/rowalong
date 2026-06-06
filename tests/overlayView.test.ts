@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon } from '../src/ui/overlayView';
+import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
-import type { Segment } from '../src/core/types';
+import { INTENSITY_META, type Segment } from '../src/core/types';
 
 describe('formatCountdown', () => {
   it('formats m:ss with ceil', () => {
@@ -17,6 +17,15 @@ describe('spmLabel', () => {
     expect(spmLabel('easy')).toBe('24 spm');
     expect(spmLabel('hard')).toBe('28 spm');
     expect(spmLabel('allout')).toBe('30–32 spm');
+  });
+});
+
+describe('strokePeriodSec', () => {
+  it('is 60 / spm seconds for one full stroke', () => {
+    expect(strokePeriodSec('easy')).toBe(2.5);     // 60/24
+    expect(strokePeriodSec('medium')).toBeCloseTo(2.307692, 5); // 60/26
+    expect(strokePeriodSec('hard')).toBeCloseTo(2.142857, 5); // 60/28
+    expect(strokePeriodSec('allout')).toBe(2);      // 60/30
   });
 });
 
@@ -309,5 +318,42 @@ describe('window-hug resize reporting (onResize)', () => {
     expect(FakeRO.instances[0].disconnected).toBe(false);
     mounted.unmount();
     expect(FakeRO.instances[0].disconnected).toBe(true);
+  });
+});
+
+describe('stroke pace bar', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('renders the stroke fill and paces it to the segment spm + color', () => {
+    // runningState.segment.intensity === 'hard' → 60/28 = 2.142.. → "2.14s"
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    expect(document.querySelector('.ov-stroke-fill')).not.toBeNull();
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.14s');
+    expect(root.style.getPropertyValue('--stroke-color')).toBe(INTENSITY_META.hard.color);
+  });
+
+  it('places the label/spm/countdown column beside the full-height stroke widget', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    const head = document.querySelector('.ov-head') as HTMLElement;
+    expect(head).not.toBeNull();
+    // the text lines share one column so the bar can span their full height
+    expect(head.querySelector('.ov-headcol .ov-label')).not.toBeNull();
+    expect(head.querySelector('.ov-headcol .ov-spm')).not.toBeNull();
+    expect(head.querySelector('.ov-headcol .ov-count')).not.toBeNull();
+    expect(head.querySelector('.ov-stroke-fill')).not.toBeNull();
+  });
+
+  it('paces an all-out segment to a clean 2.00s', () => {
+    const state: SessionState = {
+      ...runningState,
+      segment: { id: 'a', intensity: 'allout', durationSec: 60 },
+    };
+    const engine = fakeEngine(state);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
   });
 });

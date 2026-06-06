@@ -14,6 +14,11 @@ export function spmLabel(i: Intensity): string {
   return `${INTENSITY_META[i].spmLabel} spm`;
 }
 
+/** Seconds for one full stroke (drive + recovery) at the intensity's pace. */
+export function strokePeriodSec(i: Intensity): number {
+  return 60 / INTENSITY_META[i].spm;
+}
+
 export function comingUpLabel(next: Segment | null | undefined): string {
   if (!next) return '';
   return `next: ${next.label ?? INTENSITY_META[next.intensity].label}`;
@@ -33,7 +38,7 @@ export const OVERLAY_CSS = `
   .ov-label { font-weight:800; letter-spacing:.04em; text-transform:uppercase; font-size:15px; }
   .ov-spm { font-size:12px; opacity:.7; margin-top:2px; }
   .ov-count { font-weight:800; line-height:1; font-variant-numeric:tabular-nums;
-    font-size:54px; margin:6px 0 10px; }
+    font-size:54px; margin:4px 0 0; }
   .ov-bar { height:6px; border-radius:99px; background:rgba(255,255,255,.15); overflow:hidden; }
   .ov-bar > span { display:block; height:100%; border-radius:99px; }
   .ov-extra, .ov-ctrls { display:none; }
@@ -52,10 +57,46 @@ export const OVERLAY_CSS = `
     stroke-linecap:round; stroke-linejoin:round; }
   .ov-root[data-density="coach"] .ov-brand { display:flex; }
   .ov-root:hover .ov-brand { display:flex; }
-  .ov-paused-tag { display:none; font-size:11px; opacity:.8; margin-top:4px; }
-  .ov-root[data-status="paused"] .ov-paused-tag { display:block; }
   @keyframes ov-flash { from { background:rgba(255,255,255,.35);} to { background:rgba(18,18,20,.92);} }
   .ov-root.ov-flash { animation: ov-flash .5s ease; }
+  /* Stroke pace bar — fills fast on the drive (0→33%), drains slowly on the
+     recovery (33→100%). Period = 60/spm via --stroke-period; pure CSS so it
+     runs the same in PiP and Electron and pauses with the card. */
+  .ov-head { display:flex; align-items:stretch; justify-content:space-between;
+    gap:14px; margin:6px 0 10px; position:relative; }
+  .ov-headcol { display:flex; flex-direction:column; min-width:0; }
+  /* The stroke column stretches to the text block's height. In pill mode that's
+     all bar (full height, flush right). In coach mode the caption sits in-column
+     at the bottom — bottom-aligned with the countdown digits — so the bar
+     shortens to make room; margin-right keeps the caption within the content. */
+  .ov-stroke { position:relative; flex:0 0 auto; align-self:stretch;
+    display:flex; flex-direction:column; }
+  .ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
+  .ov-stroke-track { width:20px; flex:1 1 auto; border-radius:9px; background:rgba(255,255,255,.15);
+    overflow:hidden; display:flex; align-items:flex-end; }
+  .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:9px 9px 0 0;
+    background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
+  @keyframes ov-stroke-bar {
+    0%   { height:10%;  animation-timing-function: cubic-bezier(.2,.7,.3,1); }
+    33%  { height:100%; animation-timing-function: cubic-bezier(.4,0,.6,1); }
+    100% { height:10%; }
+  }
+  .ov-stroke-cap { display:none; position:relative; margin-top:5px;
+    height:11px; text-align:center;
+    font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
+  .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
+  .ov-stroke-cap > span { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }
+  .ov-stroke-cap .ov-cap-drive { animation: ov-cap-d var(--stroke-period,2s) infinite steps(1); }
+  .ov-stroke-cap .ov-cap-recover { animation: ov-cap-r var(--stroke-period,2s) infinite steps(1); }
+  @keyframes ov-cap-d { 0%{opacity:1} 33.34%{opacity:0} 100%{opacity:0} }
+  @keyframes ov-cap-r { 0%{opacity:0} 33.34%{opacity:1} 100%{opacity:1} }
+  .ov-root[data-status="paused"] .ov-stroke-fill,
+  .ov-root[data-status="paused"] .ov-stroke-cap > span { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    .ov-stroke-fill { animation: none; height: 55%; }
+    .ov-stroke-cap,
+    .ov-root[data-density="coach"] .ov-stroke-cap { display: none; }
+  }
 `;
 
 export interface OverlayOpts {
@@ -95,12 +136,19 @@ export function mountOverlay(
   root.className = 'ov-root';
   root.dataset.density = opts.density;
   root.innerHTML = `
-    <div class="ov-label"></div>
-    <div class="ov-spm"></div>
-    <div class="ov-count"></div>
+    <div class="ov-head">
+      <div class="ov-headcol">
+        <div class="ov-label"></div>
+        <div class="ov-spm"></div>
+        <div class="ov-count"></div>
+      </div>
+      <div class="ov-stroke" aria-hidden="true">
+        <div class="ov-stroke-track"><span class="ov-stroke-fill"></span></div>
+        <div class="ov-stroke-cap"><span class="ov-cap-drive">DRIVE</span><span class="ov-cap-recover">RECOVER</span></div>
+      </div>
+    </div>
     <div class="ov-bar"><span></span></div>
     <div class="ov-extra"><span class="ov-next"></span><span class="ov-remain"></span></div>
-    <div class="ov-paused-tag">PAUSED — click to resume</div>
     <div class="ov-ctrls">
       <button data-act="prev" title="Previous">⏮</button>
       <button data-act="pause" title="Pause">⏸</button>
@@ -156,6 +204,9 @@ export function mountOverlay(
     const bar = $('.ov-bar > span') as HTMLElement;
     bar.style.width = `${Math.min(100, pct)}%`;
     bar.style.background = meta.color;
+    // Stroke bar: pace to this segment's spm and tint to its color.
+    root.style.setProperty('--stroke-period', `${strokePeriodSec(seg.intensity).toFixed(2)}s`);
+    root.style.setProperty('--stroke-color', meta.color);
     $('.ov-remain').textContent = `${formatCountdown(state.totalRemainingSec)} left`;
     $('.ov-next').textContent = `Block ${state.currentIndex + 1}/${state.totalSegments}`;
   };
