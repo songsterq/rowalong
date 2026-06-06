@@ -22,13 +22,11 @@ describe('spmLabel', () => {
 
 describe('comingUpLabel', () => {
   it('names the next segment by its label, falling back to intensity', () => {
-    expect(comingUpLabel({ id: 'n', intensity: 'hard', durationSec: 60 })).toBe('Coming up: Hard');
-    expect(comingUpLabel({ id: 'n', intensity: 'allout', durationSec: 60 })).toBe(
-      'Coming up: All-out',
-    );
+    expect(comingUpLabel({ id: 'n', intensity: 'hard', durationSec: 60 })).toBe('Next: Hard');
+    expect(comingUpLabel({ id: 'n', intensity: 'allout', durationSec: 60 })).toBe('Next: All-out');
     expect(
       comingUpLabel({ id: 'n', intensity: 'easy', durationSec: 60, label: 'Warm up' }),
-    ).toBe('Coming up: Warm up');
+    ).toBe('Next: Warm up');
   });
 
   it('is empty when there is no next segment', () => {
@@ -219,7 +217,7 @@ describe('status line (spm + coming up)', () => {
     // runningState.currentIndex === 1 → next is statusSegments[2] (all-out)
     const engine = fakeEngine(runningState);
     mountOverlay(document, engine as never, { density: 'coach', segments: statusSegments });
-    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm · Coming up: All-out');
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm · Next: All-out');
   });
 
   it('shows only the spm on the final segment', () => {

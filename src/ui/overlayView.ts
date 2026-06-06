@@ -16,7 +16,7 @@ export function spmLabel(i: Intensity): string {
 
 export function comingUpLabel(next: Segment | null | undefined): string {
   if (!next) return '';
-  return `Coming up: ${next.label ?? INTENSITY_META[next.intensity].label}`;
+  return `Next: ${next.label ?? INTENSITY_META[next.intensity].label}`;
 }
 
 export function densityIcon(d: Density): string {
