@@ -124,7 +124,9 @@ export function mountOverlay(
       .filter(Boolean)
       .join(' · ');
     $('.ov-count').textContent = formatCountdown(state.segmentRemainingSec);
-    const pct = seg.durationSec ? (state.segmentElapsedSec / seg.durationSec) * 100 : 0;
+    // Bar tracks overall workout progress (the countdown already covers the segment).
+    const totalDuration = state.totalElapsedSec + state.totalRemainingSec;
+    const pct = totalDuration ? (state.totalElapsedSec / totalDuration) * 100 : 0;
     const bar = $('.ov-bar > span') as HTMLElement;
     bar.style.width = `${Math.min(100, pct)}%`;
     bar.style.background = meta.color;

@@ -78,6 +78,15 @@ describe('mountOverlay', () => {
     (document.querySelector('.ov-root') as HTMLElement).click();
     expect(engine.calls).toContain('pause');
   });
+
+  it('fills the progress bar by overall workout progress, not segment progress', () => {
+    // segment progress would be 33/60 = 55%; overall is 60/240 = 25%
+    const state: SessionState = { ...runningState, totalElapsedSec: 60, totalRemainingSec: 180 };
+    const engine = fakeEngine(state);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    const bar = document.querySelector('.ov-bar > span') as HTMLElement;
+    expect(bar.style.width).toBe('25%');
+  });
 });
 
 describe('densityIcon', () => {
