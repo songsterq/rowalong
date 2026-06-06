@@ -1,8 +1,11 @@
 import { Segment, Template, makeId } from '../core/types';
 import { Storage, Density } from '../core/storage';
 import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
+import { PushStyle, PUSH_STYLES } from '../core/pushStyles';
 import { starterTemplates } from '../core/starters';
 import { renderEditor, readEditor } from './segmentEditor';
+
+const titleCase = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 export interface SetupOpts {
   storage: Storage;
@@ -11,6 +14,9 @@ export interface SetupOpts {
 
 export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
   const prefs = opts.storage.getPrefs();
+  const initialStyle: PushStyle = PUSH_STYLES.includes(prefs.lastPushStyle)
+    ? prefs.lastPushStyle
+    : 'random';
   container.innerHTML = `
     <div class="setup">
       <h1>Workout Helper</h1>
@@ -25,8 +31,15 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
             ).join('')}
           </select>
         </label>
+        <label>Push strategy
+          <select class="setup-strategy">
+            ${PUSH_STYLES.map(
+              (s) =>
+                `<option value="${s}" ${s === initialStyle ? 'selected' : ''}>${titleCase(s)}</option>`,
+            ).join('')}
+          </select>
+        </label>
         <button class="setup-generate">Generate</button>
-        <button class="setup-regenerate">Regenerate</button>
         <div class="setup-editor"></div>
         <label>Name <input class="setup-name" type="text" placeholder="My session" /></label>
         <button class="setup-save">Save as template</button>
@@ -47,13 +60,17 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
 
   const editor = container.querySelector('.setup-editor') as HTMLElement;
   const minutesEl = container.querySelector('.setup-minutes') as HTMLSelectElement;
+  const strategyEl = container.querySelector('.setup-strategy') as HTMLSelectElement;
   const nameEl = container.querySelector('.setup-name') as HTMLInputElement;
-  let seed = 1;
+  let seed = 0;
 
   const doGenerate = () => {
+    // Re-rolls each click; only the random strategy varies (fixed styles ignore the seed).
+    seed += 1;
     const mins = snapMinutes(Number(minutesEl.value) || 20);
-    opts.storage.setPrefs({ lastTotalMin: mins });
-    renderEditor(editor, generate(mins, {}, seed));
+    const style = strategyEl.value as PushStyle;
+    opts.storage.setPrefs({ lastTotalMin: mins, lastPushStyle: style });
+    renderEditor(editor, generate(mins, { pushStyle: style }, seed));
   };
 
   const renderTemplates = () => {
@@ -82,14 +99,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
     );
   };
 
-  container.querySelector('.setup-generate')!.addEventListener('click', () => {
-    seed = 1;
-    doGenerate();
-  });
-  container.querySelector('.setup-regenerate')!.addEventListener('click', () => {
-    seed += 1;
-    doGenerate();
-  });
+  container.querySelector('.setup-generate')!.addEventListener('click', doGenerate);
 
   container.querySelector('.setup-save')!.addEventListener('click', () => {
     const segments = readEditor(editor);
