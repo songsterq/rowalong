@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon } from '../src/ui/overlayView';
+import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
 import type { Segment } from '../src/core/types';
 
@@ -17,6 +17,14 @@ describe('spmLabel', () => {
     expect(spmLabel('easy')).toBe('24 spm');
     expect(spmLabel('hard')).toBe('28 spm');
     expect(spmLabel('allout')).toBe('30–32 spm');
+  });
+});
+
+describe('strokePeriodSec', () => {
+  it('is 60 / spm seconds for one full stroke', () => {
+    expect(strokePeriodSec('easy')).toBe(2.5);     // 60/24
+    expect(strokePeriodSec('hard')).toBeCloseTo(2.142857, 5); // 60/28
+    expect(strokePeriodSec('allout')).toBe(2);      // 60/30
   });
 });
 

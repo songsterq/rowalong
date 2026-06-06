@@ -14,6 +14,11 @@ export function spmLabel(i: Intensity): string {
   return `${INTENSITY_META[i].spmLabel} spm`;
 }
 
+/** Seconds for one full stroke (drive + recovery) at the intensity's pace. */
+export function strokePeriodSec(i: Intensity): number {
+  return 60 / INTENSITY_META[i].spm;
+}
+
 export function comingUpLabel(next: Segment | null | undefined): string {
   if (!next) return '';
   return `next: ${next.label ?? INTENSITY_META[next.intensity].label}`;
