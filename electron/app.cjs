@@ -79,6 +79,10 @@ function openOverlay(payload) {
 
   overlayWin = new BrowserWindow({
     ...start,
+    // macOS non-activating NSPanel: floats over another app's native fullscreen
+    // even though the app runs as a normal Dock (Regular) app — this is why we no
+    // longer hide the Dock. (Electron 25+; see the design spec.)
+    type: 'panel',
     minWidth: OVERLAY_DEFAULTS.minWidth,
     minHeight: OVERLAY_DEFAULTS.minHeight,
     frame: false,
@@ -147,12 +151,11 @@ ipcMain.on('set-overlay-height', (_event, height) => {
 });
 
 app.whenReady().then(() => {
-  // Accessory app (no Dock icon). This replicates the verified spike: ONLY as an
-  // accessory (UIElement) process does the overlay's setVisibleOnAllWorkspaces
-  // ({ visibleOnFullScreen: true, skipTransformProcessType: true }) actually
-  // float over another app's native fullscreen. As a normal foreground app the
-  // same flags float over nothing.
-  if (app.dock) app.dock.hide();
+  // Normal Dock (Regular) app. The overlay floats over another app's native
+  // fullscreen because its window is a non-activating NSPanel (type: 'panel' in
+  // openOverlay), which works independent of Dock/accessory status — so we do
+  // NOT hide the Dock here. (The earlier activation-policy-transform attempt that
+  // kept the Dock icon WITHOUT a panel failed to float; see the design spec.)
   nativeTheme.themeSource = 'dark'; // dark traffic-light glyphs + native menus
   createSetupWindow();
   app.on('activate', () => {
@@ -161,6 +164,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  // No Dock icon to reactivate from, so quit when the last window closes.
-  app.quit();
+  // Standard macOS Dock app: stay alive when all windows close (the Dock icon /
+  // ⌘-Tab reopen the setup window via the 'activate' handler). Quit elsewhere.
+  if (process.platform !== 'darwin') app.quit();
 });
