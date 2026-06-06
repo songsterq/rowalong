@@ -69,9 +69,9 @@ export const OVERLAY_CSS = `
   .ov-stroke { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; }
   .ov-stroke-track { width:16px; height:46px; border-radius:8px; background:rgba(255,255,255,.15);
     overflow:hidden; display:flex; align-items:flex-end; }
-  .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px;
-    background:var(--stroke-color,#fff); animation: ov-stroke var(--stroke-period,2s) infinite; }
-  @keyframes ov-stroke {
+  .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
+    background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
+  @keyframes ov-stroke-bar {
     0%   { height:10%;  animation-timing-function: cubic-bezier(.2,.7,.3,1); }
     33%  { height:100%; animation-timing-function: cubic-bezier(.4,0,.6,1); }
     100% { height:10%; }
@@ -80,8 +80,8 @@ export const OVERLAY_CSS = `
     font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
   .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
   .ov-stroke-cap > span { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }
-  .ov-stroke-cap .sd { animation: ov-cap-d var(--stroke-period,2s) infinite steps(1); }
-  .ov-stroke-cap .sr { animation: ov-cap-r var(--stroke-period,2s) infinite steps(1); }
+  .ov-stroke-cap .ov-cap-drive { animation: ov-cap-d var(--stroke-period,2s) infinite steps(1); }
+  .ov-stroke-cap .ov-cap-recover { animation: ov-cap-r var(--stroke-period,2s) infinite steps(1); }
   @keyframes ov-cap-d { 0%{opacity:1} 33.34%{opacity:0} 100%{opacity:0} }
   @keyframes ov-cap-r { 0%{opacity:0} 33.34%{opacity:1} 100%{opacity:1} }
   .ov-root[data-status="paused"] .ov-stroke-fill,
@@ -136,7 +136,7 @@ export function mountOverlay(
       <div class="ov-count"></div>
       <div class="ov-stroke" aria-hidden="true">
         <div class="ov-stroke-track"><span class="ov-stroke-fill"></span></div>
-        <div class="ov-stroke-cap"><span class="sd">DRIVE</span><span class="sr">RECOVER</span></div>
+        <div class="ov-stroke-cap"><span class="ov-cap-drive">DRIVE</span><span class="ov-cap-recover">RECOVER</span></div>
       </div>
     </div>
     <div class="ov-bar"><span></span></div>
