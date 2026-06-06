@@ -38,7 +38,7 @@ export const OVERLAY_CSS = `
   .ov-label { font-weight:800; letter-spacing:.04em; text-transform:uppercase; font-size:15px; }
   .ov-spm { font-size:12px; opacity:.7; margin-top:2px; }
   .ov-count { font-weight:800; line-height:1; font-variant-numeric:tabular-nums;
-    font-size:54px; margin:0; }
+    font-size:54px; margin:4px 0 0; }
   .ov-bar { height:6px; border-radius:99px; background:rgba(255,255,255,.15); overflow:hidden; }
   .ov-bar > span { display:block; height:100%; border-radius:99px; }
   .ov-extra, .ov-ctrls { display:none; }
@@ -64,18 +64,19 @@ export const OVERLAY_CSS = `
   /* Stroke pace bar — fills fast on the drive (0→33%), drains slowly on the
      recovery (33→100%). Period = 60/spm via --stroke-period; pure CSS so it
      runs the same in PiP and Electron and pauses with the card. */
-  .ov-count-row { display:flex; align-items:flex-end; justify-content:space-between;
+  .ov-head { display:flex; align-items:stretch; justify-content:space-between;
     gap:14px; margin:6px 0 10px; position:relative; }
-  /* Coach mode floats the DRIVE/RECOVER caption just below the bar, so the row
+  .ov-headcol { display:flex; flex-direction:column; min-width:0; }
+  /* Coach mode floats the DRIVE/RECOVER caption just below the bar, so the head
      needs extra bottom room; pill mode (no caption) stays tight. */
-  .ov-root[data-density="coach"] .ov-count-row { margin-bottom:24px; }
-  /* The bar bottom-aligns with the countdown digits and rises into the space
-     above. In coach mode it pulls in (margin-right) so its caption lines up with
-     the status row below; pill mode has no caption, so the bar sits flush to the
-     right edge like the progress bar. */
-  .ov-stroke { position:relative; flex:0 0 auto; }
+  .ov-root[data-density="coach"] .ov-head { margin-bottom:24px; }
+  /* The bar is a full-height accent: it stretches to span the whole text block
+     (label, spm line and countdown). In coach mode it pulls in (margin-right) so
+     its caption lines up with the status row below; pill mode has no caption, so
+     the bar sits flush to the right edge like the progress bar. */
+  .ov-stroke { position:relative; flex:0 0 auto; align-self:stretch; display:flex; }
   .ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
-  .ov-stroke-track { width:16px; height:62px; border-radius:8px; background:rgba(255,255,255,.15);
+  .ov-stroke-track { width:16px; border-radius:8px; background:rgba(255,255,255,.15);
     overflow:hidden; display:flex; align-items:flex-end; }
   .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
     background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
@@ -139,10 +140,12 @@ export function mountOverlay(
   root.className = 'ov-root';
   root.dataset.density = opts.density;
   root.innerHTML = `
-    <div class="ov-label"></div>
-    <div class="ov-spm"></div>
-    <div class="ov-count-row">
-      <div class="ov-count"></div>
+    <div class="ov-head">
+      <div class="ov-headcol">
+        <div class="ov-label"></div>
+        <div class="ov-spm"></div>
+        <div class="ov-count"></div>
+      </div>
       <div class="ov-stroke" aria-hidden="true">
         <div class="ov-stroke-track"><span class="ov-stroke-fill"></span></div>
         <div class="ov-stroke-cap"><span class="ov-cap-drive">DRIVE</span><span class="ov-cap-recover">RECOVER</span></div>

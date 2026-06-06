@@ -334,13 +334,16 @@ describe('stroke pace bar', () => {
     expect(root.style.getPropertyValue('--stroke-color')).toBe(INTENSITY_META.hard.color);
   });
 
-  it('keeps the countdown in a row beside the stroke widget', () => {
+  it('places the label/spm/countdown column beside the full-height stroke widget', () => {
     const engine = fakeEngine(runningState);
     mountOverlay(document, engine as never, { density: 'pill' });
-    const row = document.querySelector('.ov-count-row') as HTMLElement;
-    expect(row).not.toBeNull();
-    expect(row.querySelector('.ov-count')).not.toBeNull();
-    expect(row.querySelector('.ov-stroke-fill')).not.toBeNull();
+    const head = document.querySelector('.ov-head') as HTMLElement;
+    expect(head).not.toBeNull();
+    // the text lines share one column so the bar can span their full height
+    expect(head.querySelector('.ov-headcol .ov-label')).not.toBeNull();
+    expect(head.querySelector('.ov-headcol .ov-spm')).not.toBeNull();
+    expect(head.querySelector('.ov-headcol .ov-count')).not.toBeNull();
+    expect(head.querySelector('.ov-stroke-fill')).not.toBeNull();
   });
 
   it('paces an all-out segment to a clean 2.00s', () => {

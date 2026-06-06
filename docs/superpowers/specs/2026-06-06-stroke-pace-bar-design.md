@@ -7,7 +7,8 @@
 ## Summary
 
 Add a slim, always-on-top **stroke pace indicator** to the running overlay,
-placed in the empty area to the right of the countdown. It animates the rowing
+placed in the empty area to the right of the text block, as a full-height accent
+spanning the label, spm line and countdown. It animates the rowing
 **drive → recovery** cycle as a vertical bar that fills fast (the drive) and
 drains slowly (the recovery), paced to the segment's recommended stroke rate.
 
@@ -81,18 +82,25 @@ manually, consistent with how the rest of the overlay UI is treated.
 
 ## DOM
 
-Wrap the existing countdown in a flex row and add the stroke widget beside it.
-Today (`mountOverlay` innerHTML):
+Group the label, spm line and countdown into a left column (`ov-headcol`) and
+put the stroke widget beside them in a flex `ov-head`, so the bar can stretch to
+the full height of the text block. Today (`mountOverlay` innerHTML):
 
 ```html
+<div class="ov-label"></div>
+<div class="ov-spm"></div>
 <div class="ov-count"></div>
 ```
 
 becomes:
 
 ```html
-<div class="ov-count-row">
-  <div class="ov-count"></div>
+<div class="ov-head">
+  <div class="ov-headcol">
+    <div class="ov-label"></div>
+    <div class="ov-spm"></div>
+    <div class="ov-count"></div>
+  </div>
   <div class="ov-stroke" aria-hidden="true">
     <div class="ov-stroke-track"><span class="ov-stroke-fill"></span></div>
     <div class="ov-stroke-cap"><span class="ov-cap-drive">DRIVE</span><span class="ov-cap-recover">RECOVER</span></div>
@@ -105,23 +113,24 @@ reader needs (the spm number already conveys the target).
 
 ## CSS (injected via `OVERLAY_CSS`)
 
-Layout — the row keeps the countdown's existing vertical margins so nothing
-shifts:
+Layout — `ov-head` is a stretch row, so the bar matches the height of the text
+column (label → countdown):
 
 ```css
-.ov-count-row { display:flex; align-items:flex-end; justify-content:space-between;
+.ov-head { display:flex; align-items:stretch; justify-content:space-between;
   gap:14px; margin:6px 0 10px; position:relative; }
-.ov-count { margin:0; }                 /* row now owns the margin */
-/* Coach mode floats the caption just below the bar, so the row needs extra
+.ov-headcol { display:flex; flex-direction:column; min-width:0; }
+.ov-count { margin:4px 0 0; }            /* separate digits from the spm line */
+/* Coach mode floats the caption just below the bar, so the head needs extra
    bottom room; pill mode (no caption) keeps the tight 10px. */
-.ov-root[data-density="coach"] .ov-count-row { margin-bottom:24px; }
-/* The bar bottom-aligns with the countdown digits and rises into the space
-   above them. In coach mode it pulls in (margin-right) so its caption lines up
-   with the status row ("… left") below; pill mode has no caption, so the bar
-   sits flush to the right edge like the progress bar. */
-.ov-stroke { position:relative; flex:0 0 auto; }
+.ov-root[data-density="coach"] .ov-head { margin-bottom:24px; }
+/* The bar is a full-height accent spanning the whole text block. In coach mode
+   it pulls in (margin-right) so its caption lines up with the status row ("…
+   left") below; pill mode has no caption, so the bar sits flush to the right
+   edge like the progress bar. */
+.ov-stroke { position:relative; flex:0 0 auto; align-self:stretch; display:flex; }
 .ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
-.ov-stroke-track { width:16px; height:62px; border-radius:8px;
+.ov-stroke-track { width:16px; border-radius:8px;          /* height stretches */
   background:rgba(255,255,255,.15); overflow:hidden; display:flex; align-items:flex-end; }
 /* top corners round the fill when the bar is short; bottom corners are clipped
    by the track's overflow:hidden. */
@@ -193,13 +202,13 @@ round-trips custom-property strings exactly but normalizes some color shorthands
 
 ## Non-functional notes
 
-- **Footprint.** In pill mode the widget is the 62px track, bottom-aligned with
-  the 54px countdown and rising ~8px above it into the existing whitespace below
-  the spm line — the row height is still governed by the countdown's own box, so
-  nothing shifts during running. In coach mode the floated caption needs ~14px of
-  extra bottom margin on the count row; that toggles only on a density change,
-  which the Electron `ResizeObserver` hug already catches. Countdown ticks never
-  change height, so the observer stays quiet while running.
+- **Footprint.** The bar stretches to the text column's height (label + spm +
+  countdown, ~91px), so the head's height is still governed by that existing text
+  — adding the bar beside it doesn't grow the card vertically, and nothing shifts
+  during running. In coach mode the floated caption needs ~14px of extra bottom
+  margin on the head; that toggles only on a density change, which the Electron
+  `ResizeObserver` hug already catches. Countdown ticks never change height, so
+  the observer stays quiet while running.
 - **Host-agnostic.** Pure CSS keyframes run identically in the browser Document
   PiP overlay and the Electron overlay window. No new timers, no dependence on
   the engine tick rate.
