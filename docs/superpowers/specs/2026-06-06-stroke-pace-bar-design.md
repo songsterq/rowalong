@@ -32,8 +32,9 @@ that rhythm visible and synced to the target spm.
 - **Drive vs. recovery cue:** **speed only** — same solid color throughout; the
   fast-fill / slow-drain asymmetry alone signals the phase. Quietest option.
 - **When shown:** **every block** (easy 24 → all-out 30), not just work blocks.
-- **Caption:** a `DRIVE` / `RECOVER` label shown **only in coach mode**; pill
-  mode stays pure numbers.
+- **Caption:** a `DRIVE` / `RECOVER` label shown **only in coach mode**, sitting
+  inside the bar's column with its bottom on the countdown line (so the bar
+  shortens to make room); pill mode stays pure numbers with a full-height bar.
 
 ## Timing model
 
@@ -121,20 +122,18 @@ column (label → countdown):
   gap:14px; margin:6px 0 10px; position:relative; }
 .ov-headcol { display:flex; flex-direction:column; min-width:0; }
 .ov-count { margin:4px 0 0; }            /* separate digits from the spm line */
-/* Coach mode floats the caption just below the bar, so the head needs extra
-   bottom room; pill mode (no caption) keeps the tight 10px. */
-.ov-root[data-density="coach"] .ov-head { margin-bottom:24px; }
-/* The bar is a full-height accent spanning the whole text block. In coach mode
-   it pulls in (margin-right) so its caption lines up with the status row ("…
-   left") below; pill mode has no caption, so the bar sits flush to the right
-   edge like the progress bar. */
-.ov-stroke { position:relative; flex:0 0 auto; align-self:stretch; display:flex; }
+/* The stroke column stretches to the text block's height. In pill mode that's
+   all bar (full height, flush right). In coach mode the caption sits in-column
+   at the bottom — bottom-aligned with the countdown — so the bar shortens to
+   make room; margin-right keeps the caption within the content width. */
+.ov-stroke { position:relative; flex:0 0 auto; align-self:stretch;
+  display:flex; flex-direction:column; }
 .ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
-.ov-stroke-track { width:16px; border-radius:8px;          /* height stretches */
+.ov-stroke-track { width:20px; flex:1 1 auto; border-radius:9px;  /* fills the column */
   background:rgba(255,255,255,.15); overflow:hidden; display:flex; align-items:flex-end; }
 /* top corners round the fill when the bar is short; bottom corners are clipped
    by the track's overflow:hidden. */
-.ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
+.ov-stroke-fill { display:block; width:100%; height:10%; border-radius:9px 9px 0 0;
   background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
 ```
 
@@ -149,11 +148,12 @@ is `ov-stroke-bar`, distinct from the `.ov-stroke` container class.):
 }
 ```
 
-Caption (coach-only) — two stacked spans cross-fade on the same period so it
-reads `DRIVE` during the first third, `RECOVER` after, with no JS:
+Caption (coach-only) — the last item in the stroke column, so its bottom lands on
+the countdown line. Two stacked spans cross-fade on the same period so it reads
+`DRIVE` during the first third, `RECOVER` after, with no JS:
 
 ```css
-.ov-stroke-cap { display:none; position:absolute; top:100%; left:0; right:0; margin-top:5px;
+.ov-stroke-cap { display:none; position:relative; margin-top:5px;
   height:11px; text-align:center;
   font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
 .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
@@ -202,13 +202,13 @@ round-trips custom-property strings exactly but normalizes some color shorthands
 
 ## Non-functional notes
 
-- **Footprint.** The bar stretches to the text column's height (label + spm +
-  countdown, ~91px), so the head's height is still governed by that existing text
-  — adding the bar beside it doesn't grow the card vertically, and nothing shifts
-  during running. In coach mode the floated caption needs ~14px of extra bottom
-  margin on the head; that toggles only on a density change, which the Electron
-  `ResizeObserver` hug already catches. Countdown ticks never change height, so
-  the observer stays quiet while running.
+- **Footprint.** The stroke column stretches to the text column's height (label +
+  spm + countdown, ~92px), so the head's height is governed by that existing text
+  in both densities — adding the bar beside it doesn't grow the card vertically,
+  and nothing shifts during running. (The coach caption lives *inside* the column,
+  shortening the bar to ~75px rather than adding a row, so the density toggle no
+  longer changes the head height.) Countdown ticks never change height, so the
+  Electron `ResizeObserver` hug stays quiet while running.
 - **Host-agnostic.** Pure CSS keyframes run identically in the browser Document
   PiP overlay and the Electron overlay window. No new timers, no dependence on
   the engine tick rate.

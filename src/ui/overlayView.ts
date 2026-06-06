@@ -67,25 +67,23 @@ export const OVERLAY_CSS = `
   .ov-head { display:flex; align-items:stretch; justify-content:space-between;
     gap:14px; margin:6px 0 10px; position:relative; }
   .ov-headcol { display:flex; flex-direction:column; min-width:0; }
-  /* Coach mode floats the DRIVE/RECOVER caption just below the bar, so the head
-     needs extra bottom room; pill mode (no caption) stays tight. */
-  .ov-root[data-density="coach"] .ov-head { margin-bottom:24px; }
-  /* The bar is a full-height accent: it stretches to span the whole text block
-     (label, spm line and countdown). In coach mode it pulls in (margin-right) so
-     its caption lines up with the status row below; pill mode has no caption, so
-     the bar sits flush to the right edge like the progress bar. */
-  .ov-stroke { position:relative; flex:0 0 auto; align-self:stretch; display:flex; }
+  /* The stroke column stretches to the text block's height. In pill mode that's
+     all bar (full height, flush right). In coach mode the caption sits in-column
+     at the bottom — bottom-aligned with the countdown digits — so the bar
+     shortens to make room; margin-right keeps the caption within the content. */
+  .ov-stroke { position:relative; flex:0 0 auto; align-self:stretch;
+    display:flex; flex-direction:column; }
   .ov-root[data-density="coach"] .ov-stroke { margin-right:16px; }
-  .ov-stroke-track { width:16px; border-radius:8px; background:rgba(255,255,255,.15);
+  .ov-stroke-track { width:20px; flex:1 1 auto; border-radius:9px; background:rgba(255,255,255,.15);
     overflow:hidden; display:flex; align-items:flex-end; }
-  .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
+  .ov-stroke-fill { display:block; width:100%; height:10%; border-radius:9px 9px 0 0;
     background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
   @keyframes ov-stroke-bar {
     0%   { height:10%;  animation-timing-function: cubic-bezier(.2,.7,.3,1); }
     33%  { height:100%; animation-timing-function: cubic-bezier(.4,0,.6,1); }
     100% { height:10%; }
   }
-  .ov-stroke-cap { display:none; position:absolute; top:100%; left:0; right:0; margin-top:5px;
+  .ov-stroke-cap { display:none; position:relative; margin-top:5px;
     height:11px; text-align:center;
     font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
   .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
