@@ -23,6 +23,7 @@ describe('spmLabel', () => {
 describe('strokePeriodSec', () => {
   it('is 60 / spm seconds for one full stroke', () => {
     expect(strokePeriodSec('easy')).toBe(2.5);     // 60/24
+    expect(strokePeriodSec('medium')).toBeCloseTo(2.307692, 5); // 60/26
     expect(strokePeriodSec('hard')).toBeCloseTo(2.142857, 5); // 60/28
     expect(strokePeriodSec('allout')).toBe(2);      // 60/30
   });
