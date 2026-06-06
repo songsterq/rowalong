@@ -95,7 +95,7 @@ becomes:
   <div class="ov-count"></div>
   <div class="ov-stroke" aria-hidden="true">
     <div class="ov-stroke-track"><span class="ov-stroke-fill"></span></div>
-    <div class="ov-stroke-cap"><span class="sd">DRIVE</span><span class="sr">RECOVER</span></div>
+    <div class="ov-stroke-cap"><span class="ov-cap-drive">DRIVE</span><span class="ov-cap-recover">RECOVER</span></div>
   </div>
 </div>
 ```
@@ -112,17 +112,20 @@ shifts:
 .ov-count-row { display:flex; align-items:flex-end; justify-content:space-between;
   gap:14px; margin:6px 0 10px; }
 .ov-count { margin:0; }                 /* row now owns the margin */
-.ov-stroke { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.ov-stroke { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; }
 .ov-stroke-track { width:16px; height:46px; border-radius:8px;
   background:rgba(255,255,255,.15); overflow:hidden; display:flex; align-items:flex-end; }
-.ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px;
-  animation: ov-stroke var(--stroke-period,2s) infinite; }
+/* top corners round the fill when the bar is short; bottom corners are clipped
+   by the track's overflow:hidden. */
+.ov-stroke-fill { display:block; width:100%; height:10%; border-radius:8px 8px 0 0;
+  background:var(--stroke-color,#fff); animation: ov-stroke-bar var(--stroke-period,2s) infinite; }
 ```
 
-Animation — drive (0→33%) quick-out, recovery (33→100%) smooth:
+Animation — drive (0→33%) quick-out, recovery (33→100%) smooth. (Keyframe name
+is `ov-stroke-bar`, distinct from the `.ov-stroke` container class.):
 
 ```css
-@keyframes ov-stroke {
+@keyframes ov-stroke-bar {
   0%   { height:10%;  animation-timing-function: cubic-bezier(.2,.7,.3,1); } /* drive */
   33%  { height:100%; animation-timing-function: cubic-bezier(.4,0,.6,1); }  /* recovery */
   100% { height:10%; }
@@ -137,8 +140,8 @@ reads `DRIVE` during the first third, `RECOVER` after, with no JS:
   font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.6; }
 .ov-root[data-density="coach"] .ov-stroke-cap { display:block; }
 .ov-stroke-cap > span { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; }
-.ov-stroke-cap .sd { animation: ov-cap-d var(--stroke-period,2s) infinite steps(1); }
-.ov-stroke-cap .sr { animation: ov-cap-r var(--stroke-period,2s) infinite steps(1); }
+.ov-stroke-cap .ov-cap-drive { animation: ov-cap-d var(--stroke-period,2s) infinite steps(1); }
+.ov-stroke-cap .ov-cap-recover { animation: ov-cap-r var(--stroke-period,2s) infinite steps(1); }
 @keyframes ov-cap-d { 0%{opacity:1} 33.34%{opacity:0} 100%{opacity:0} }
 @keyframes ov-cap-r { 0%{opacity:0} 33.34%{opacity:1} 100%{opacity:1} }
 ```
@@ -155,7 +158,10 @@ Reduced motion — hold static, no pulsing:
 ```css
 @media (prefers-reduced-motion: reduce) {
   .ov-stroke-fill { animation: none; height: 55%; }
-  .ov-stroke-cap { display:none; }   /* even in coach mode */
+  /* repeat the coach selector so it ties the always-on coach rule on
+     specificity and wins by source order — hides the caption even in coach. */
+  .ov-stroke-cap,
+  .ov-root[data-density="coach"] .ov-stroke-cap { display: none; }
 }
 ```
 
@@ -166,21 +172,25 @@ existing progress-bar update:
 
 ```ts
 root.style.setProperty('--stroke-period', `${strokePeriodSec(seg.intensity).toFixed(2)}s`);
-($('.ov-stroke-fill') as HTMLElement).style.background = meta.color;
+root.style.setProperty('--stroke-color', meta.color);
 ```
 
 The period is constant within a segment (same value re-set each tick is a no-op
 for the running animation) and changes only at a transition, where the overlay
 already flashes — any retiming is masked. The fill color follows the intensity,
-exactly like `.ov-bar > span`.
+like `.ov-bar > span`; it goes through the `--stroke-color` variable (rather than
+a direct `background` set) so the test can assert it deterministically — jsdom
+round-trips custom-property strings exactly but normalizes some color shorthands.
 
 ## Non-functional notes
 
-- **No footprint change.** The widget (track 46px + 11px coach caption) is
-  shorter than the 54px countdown, so the row height is governed by the
-  countdown. The Electron `ResizeObserver` hug stays quiet during running; the
-  coach caption toggles height only when density changes, which the observer
-  already handles.
+- **No footprint change while running.** In pill mode the widget is just the
+  46px track — shorter than the 54px countdown — so the row height is governed by
+  the countdown and nothing shifts. In coach mode the column adds the 6px gap +
+  11px caption (≈63px total), so a pill→coach toggle grows the card by ~9px — but
+  that only happens on a density change, which the Electron `ResizeObserver` hug
+  already catches. Countdown ticks never change height, so the observer stays
+  quiet during normal running.
 - **Host-agnostic.** Pure CSS keyframes run identically in the browser Document
   PiP overlay and the Electron overlay window. No new timers, no dependence on
   the engine tick rate.
