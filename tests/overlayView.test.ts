@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
 import type { Segment } from '../src/core/types';
@@ -245,5 +245,69 @@ describe('status line (spm + coming up)', () => {
     const engine = fakeEngine(runningState);
     mountOverlay(document, engine as never, { density: 'coach' });
     expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
+  });
+});
+
+describe('window-hug resize reporting (onResize)', () => {
+  class FakeRO {
+    static instances: FakeRO[] = [];
+    cb: ResizeObserverCallback;
+    observed: Element[] = [];
+    disconnected = false;
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb;
+      FakeRO.instances.push(this);
+    }
+    observe(el: Element) { this.observed.push(el); }
+    unobserve() {}
+    disconnect() { this.disconnected = true; }
+    fire() { this.cb([], this as unknown as ResizeObserver); }
+  }
+
+  let originalRO: typeof globalThis.ResizeObserver;
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    FakeRO.instances = [];
+    originalRO = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = FakeRO as unknown as typeof ResizeObserver;
+  });
+  afterEach(() => {
+    globalThis.ResizeObserver = originalRO;
+  });
+
+  it('observes the card and reports its border-box height through onResize', () => {
+    const engine = fakeEngine(runningState);
+    const heights: number[] = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onResize: (h) => heights.push(h),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    Object.defineProperty(root, 'offsetHeight', { configurable: true, value: 142 });
+
+    expect(FakeRO.instances).toHaveLength(1);
+    expect(FakeRO.instances[0].observed).toContain(root);
+    expect(heights).toEqual([]); // not reported until the observer fires
+
+    FakeRO.instances[0].fire();
+    expect(heights).toEqual([142]);
+  });
+
+  it('does not create an observer when onResize is omitted (PiP path untouched)', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    expect(FakeRO.instances).toHaveLength(0);
+  });
+
+  it('disconnects the observer on unmount', () => {
+    const engine = fakeEngine(runningState);
+    const mounted = mountOverlay(document, engine as never, {
+      density: 'pill',
+      onResize: () => {},
+    });
+    expect(FakeRO.instances[0].disconnected).toBe(false);
+    mounted.unmount();
+    expect(FakeRO.instances[0].disconnected).toBe(true);
   });
 });

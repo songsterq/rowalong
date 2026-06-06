@@ -65,6 +65,9 @@ export interface OverlayOpts {
   /** Drag the overlay body to reposition the host window. dx/dy are screen-px
    *  deltas since the last move. When omitted, the body is click-only (no drag). */
   onDrag?: (dx: number, dy: number) => void;
+  /** Report the card's rendered border-box height (px) so an Electron host can
+   *  resize its window to hug the content. Electron-only; omitted in the browser. */
+  onResize?: (height: number) => void;
   /** The full workout, so the status line can name the upcoming segment. */
   segments?: Segment[];
 }
@@ -110,6 +113,16 @@ export function mountOverlay(
       <span>RowAlong</span>
     </div>`;
   doc.body.appendChild(root);
+
+  // Electron host only: keep the overlay window hugging the card. The card height
+  // changes on density toggle, hover-reveal of controls, and the paused tag — a
+  // ResizeObserver catches them all. Countdown ticks don't change height, so this
+  // stays quiet during normal running.
+  let resizeObs: ResizeObserver | undefined;
+  if (opts.onResize) {
+    resizeObs = new ResizeObserver(() => opts.onResize!(root.offsetHeight));
+    resizeObs.observe(root);
+  }
 
   const $ = (sel: string) => root.querySelector(sel) as HTMLElement;
 
@@ -243,6 +256,7 @@ export function mountOverlay(
 
   return {
     unmount() {
+      resizeObs?.disconnect();
       off();
       root.remove();
       style.remove();
