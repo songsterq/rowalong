@@ -15,6 +15,13 @@ describe('INTENSITY_META', () => {
     expect(INTENSITY_META.allout.spmLabel).toBe('30–32');
   });
 
+  it('carries a numeric spm for pacing (all-out uses the 30 lower bound)', () => {
+    expect(INTENSITY_META.easy.spm).toBe(24);
+    expect(INTENSITY_META.medium.spm).toBe(26);
+    expect(INTENSITY_META.hard.spm).toBe(28);
+    expect(INTENSITY_META.allout.spm).toBe(30);
+  });
+
   it('classifies easy/medium as rest and hard/allout as work', () => {
     expect(INTENSITY_META.easy.kind).toBe('rest');
     expect(INTENSITY_META.medium.kind).toBe('rest');
