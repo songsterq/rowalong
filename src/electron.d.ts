@@ -15,6 +15,8 @@ export interface ElectronAPI {
   stopSession(): void;
   /** Overlay window → main: move the overlay window by a screen-px delta. */
   moveOverlayBy(dx: number, dy: number): void;
+  /** Overlay window → main: resize the overlay window's content height (px) so the window hugs the card. */
+  setOverlayHeight(height: number): void;
   /** Overlay window: receive the session payload from main once after load. */
   onSessionPayload(cb: (payload: SessionPayload) => void): void;
 }
