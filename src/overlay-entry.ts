@@ -39,6 +39,7 @@ function runSession(payload: SessionPayload) {
       cancelAnimationFrame(rafId);
       window.electronAPI?.stopSession();
     },
+    onDrag: (dx, dy) => window.electronAPI?.moveOverlayBy(dx, dy),
   });
 
   const step = () => {
