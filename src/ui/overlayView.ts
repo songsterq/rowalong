@@ -57,8 +57,6 @@ export const OVERLAY_CSS = `
     stroke-linecap:round; stroke-linejoin:round; }
   .ov-root[data-density="coach"] .ov-brand { display:flex; }
   .ov-root:hover .ov-brand { display:flex; }
-  .ov-paused-tag { display:none; font-size:11px; opacity:.8; margin-top:4px; }
-  .ov-root[data-status="paused"] .ov-paused-tag { display:block; }
   @keyframes ov-flash { from { background:rgba(255,255,255,.35);} to { background:rgba(18,18,20,.92);} }
   .ov-root.ov-flash { animation: ov-flash .5s ease; }
   /* Stroke pace bar — fills fast on the drive (0→33%), drains slowly on the
@@ -151,7 +149,6 @@ export function mountOverlay(
     </div>
     <div class="ov-bar"><span></span></div>
     <div class="ov-extra"><span class="ov-next"></span><span class="ov-remain"></span></div>
-    <div class="ov-paused-tag">PAUSED — click to resume</div>
     <div class="ov-ctrls">
       <button data-act="prev" title="Previous">⏮</button>
       <button data-act="pause" title="Pause">⏸</button>
