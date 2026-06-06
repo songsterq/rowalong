@@ -81,7 +81,7 @@ export function mountOverlay(
     <div class="ov-paused-tag">PAUSED — click to resume</div>
     <div class="ov-ctrls">
       <button data-act="prev" title="Previous">⏮</button>
-      <button data-act="pause" title="Pause/Resume">⏯</button>
+      <button data-act="pause" title="Pause">⏸</button>
       <button data-act="next" title="Next">⏭</button>
       <button data-act="density"></button>
       <button data-act="stop" title="Stop">⏹</button>
@@ -91,6 +91,7 @@ export function mountOverlay(
   const $ = (sel: string) => root.querySelector(sel) as HTMLElement;
 
   const densityBtn = root.querySelector('[data-act="density"]') as HTMLButtonElement;
+  const pauseBtn = root.querySelector('[data-act="pause"]') as HTMLButtonElement;
   const syncDensityBtn = (d: Density) => {
     densityBtn.textContent = densityIcon(d);
     densityBtn.title = d === 'coach' ? 'Collapse' : 'Expand';
@@ -99,6 +100,9 @@ export function mountOverlay(
 
   const apply = (state: SessionState) => {
     root.dataset.status = state.status;
+    const paused = state.status === 'paused';
+    pauseBtn.textContent = paused ? '⏵' : '⏸';
+    pauseBtn.title = paused ? 'Resume' : 'Pause';
     const seg = state.segment;
     if (!seg) return;
     const meta = INTENSITY_META[seg.intensity];

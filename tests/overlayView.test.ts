@@ -87,3 +87,25 @@ describe('density toggle button', () => {
     expect(btn.getAttribute('title')).toBe('Collapse');
   });
 });
+
+const pausedState: SessionState = { ...runningState, status: 'paused' };
+
+describe('play/pause button is state-aware', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('shows the pause glyph and title while running', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    const btn = document.querySelector('[data-act="pause"]') as HTMLElement;
+    expect(btn.textContent).toBe('⏸');
+    expect(btn.getAttribute('title')).toBe('Pause');
+  });
+
+  it('shows the play glyph and title while paused', () => {
+    const engine = fakeEngine(pausedState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    const btn = document.querySelector('[data-act="pause"]') as HTMLElement;
+    expect(btn.textContent).toBe('⏵');
+    expect(btn.getAttribute('title')).toBe('Resume');
+  });
+});
