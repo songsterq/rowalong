@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startSession: (payload) => ipcRenderer.send('start-session', payload),
   // overlay window → main
   stopSession: () => ipcRenderer.send('stop-session'),
+  moveOverlayBy: (dx, dy) => ipcRenderer.send('move-overlay-by', { dx, dy }),
   // main → overlay window (delivered once after load)
   onSessionPayload: (cb) =>
     ipcRenderer.on('session-payload', (_event, payload) => cb(payload)),

@@ -16,6 +16,7 @@ let mounted: MountedOverlay | null = null;
 let fallbackEl: HTMLElement | null = null;
 let host: PipOverlayHost | null = null;
 let tearingDown = false;
+let currentSegments: Segment[] = [];
 
 function wireAudio(engine: SessionEngine) {
   const prefs = storage.getPrefs();
@@ -43,6 +44,7 @@ function runLoop(engine: SessionEngine) {
 function overlayOpts(_engine: SessionEngine) {
   return {
     density: storage.getPrefs().density,
+    segments: currentSegments,
     onToggleDensity: () => {
       const next: Density = storage.getPrefs().density === 'pill' ? 'coach' : 'pill';
       storage.setPrefs({ density: next });
@@ -95,6 +97,7 @@ async function startSession(segments: Segment[]) {
     return;
   }
   tearingDown = false;
+  currentSegments = segments;
   const engine = new SessionEngine(segments);
   tone.unlock(); // user gesture (Start click)
   wireAudio(engine);

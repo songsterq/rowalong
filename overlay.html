@@ -16,28 +16,9 @@
         flex-direction: column;
         align-items: stretch;
       }
-      /* Frameless window has no title bar; this strip is the drag handle.
-         The overlay body below stays clickable (no-drag) for pause/controls. */
-      #grip {
-        flex: 0 0 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        -webkit-app-region: drag;
-      }
-      #grip > div {
-        width: 36px;
-        height: 4px;
-        border-radius: 2px;
-        background: rgba(255, 255, 255, 0.45);
-      }
-      .ov-root {
-        -webkit-app-region: no-drag;
-      }
     </style>
   </head>
   <body>
-    <div id="grip"><div></div></div>
     <script type="module" src="/src/overlay-entry.ts"></script>
   </body>
 </html>

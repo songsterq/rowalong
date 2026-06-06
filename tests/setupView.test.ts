@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mountSetup } from '../src/ui/setupView';
+import { mountSetup, summarize } from '../src/ui/setupView';
 import { Storage, type KeyValueStore } from '../src/core/storage';
 import type { Segment } from '../src/core/types';
 
@@ -88,6 +88,13 @@ describe('setup view', () => {
     expect(segments.some((s) => s.intensity === 'allout')).toBe(false);
   });
 
+  it('starts with a ready-to-run workout (not an empty form)', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(container.querySelectorAll('.seg-row').length).toBeGreaterThan(0);
+    // Start bar reflects a non-empty workout.
+    expect((container.querySelector('.setup-startbar') as HTMLElement).dataset.empty).toBe('false');
+  });
+
   it('remembers the last-used strategy across mounts', () => {
     mountSetup(container, { storage, onStart: () => {} });
     (container.querySelector('.setup-strategy') as HTMLSelectElement).value = 'steps';
@@ -97,5 +104,23 @@ describe('setup view', () => {
     const remounted = document.getElementById('app')!;
     mountSetup(remounted, { storage, onStart: () => {} });
     expect((remounted.querySelector('.setup-strategy') as HTMLSelectElement).value).toBe('steps');
+  });
+});
+
+describe('summarize', () => {
+  it('totals duration, counts blocks, and counts work blocks', () => {
+    const s = summarize([
+      { id: 'a', intensity: 'easy', durationSec: 180 }, // rest
+      { id: 'b', intensity: 'hard', durationSec: 120 }, // work
+      { id: 'c', intensity: 'allout', durationSec: 60 }, // work
+      { id: 'd', intensity: 'medium', durationSec: 40 }, // rest
+    ]);
+    expect(s.totalSec).toBe(400);
+    expect(s.blocks).toBe(4);
+    expect(s.workBlocks).toBe(2);
+  });
+
+  it('is all zeros for an empty workout', () => {
+    expect(summarize([])).toEqual({ totalSec: 0, blocks: 0, workBlocks: 0 });
   });
 });

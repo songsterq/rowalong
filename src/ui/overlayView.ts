@@ -1,4 +1,4 @@
-import { INTENSITY_META, Intensity } from '../core/types';
+import { INTENSITY_META, Intensity, Segment } from '../core/types';
 import type { SessionEngine, SessionState } from '../core/sessionEngine';
 import type { Density } from '../core/storage';
 
@@ -9,9 +9,14 @@ export function formatCountdown(sec: number): string {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
-export function spmText(i: Intensity): string {
-  const meta = INTENSITY_META[i];
-  return `${meta.label} · ${meta.spmLabel} spm`;
+export function spmLabel(i: Intensity): string {
+  // Just the recommended stroke rate; the intensity name already shows on line 1.
+  return `${INTENSITY_META[i].spmLabel} spm`;
+}
+
+export function comingUpLabel(next: Segment | null | undefined): string {
+  if (!next) return '';
+  return `next: ${next.label ?? INTENSITY_META[next.intensity].label}`;
 }
 
 export function densityIcon(d: Density): string {
@@ -48,6 +53,11 @@ export interface OverlayOpts {
   density: Density;
   onToggleDensity?: () => void;
   onStop?: () => void;
+  /** Drag the overlay body to reposition the host window. dx/dy are screen-px
+   *  deltas since the last move. When omitted, the body is click-only (no drag). */
+  onDrag?: (dx: number, dy: number) => void;
+  /** The full workout, so the status line can name the upcoming segment. */
+  segments?: Segment[];
 }
 
 type OverlayEngine = Pick<
@@ -81,7 +91,7 @@ export function mountOverlay(
     <div class="ov-paused-tag">PAUSED — click to resume</div>
     <div class="ov-ctrls">
       <button data-act="prev" title="Previous">⏮</button>
-      <button data-act="pause" title="Pause/Resume">⏯</button>
+      <button data-act="pause" title="Pause">⏸</button>
       <button data-act="next" title="Next">⏭</button>
       <button data-act="density"></button>
       <button data-act="stop" title="Stop">⏹</button>
@@ -91,6 +101,7 @@ export function mountOverlay(
   const $ = (sel: string) => root.querySelector(sel) as HTMLElement;
 
   const densityBtn = root.querySelector('[data-act="density"]') as HTMLButtonElement;
+  const pauseBtn = root.querySelector('[data-act="pause"]') as HTMLButtonElement;
   const syncDensityBtn = (d: Density) => {
     densityBtn.textContent = densityIcon(d);
     densityBtn.title = d === 'coach' ? 'Collapse' : 'Expand';
@@ -99,15 +110,23 @@ export function mountOverlay(
 
   const apply = (state: SessionState) => {
     root.dataset.status = state.status;
+    const paused = state.status === 'paused';
+    pauseBtn.textContent = paused ? '⏵' : '⏸';
+    pauseBtn.title = paused ? 'Resume' : 'Pause';
     const seg = state.segment;
     if (!seg) return;
     const meta = INTENSITY_META[seg.intensity];
     root.dataset.intensity = seg.intensity;
     $('.ov-label').textContent = seg.label ?? meta.label;
     $('.ov-label').style.color = meta.color;
-    $('.ov-spm').textContent = spmText(seg.intensity);
+    const next = opts.segments?.[state.currentIndex + 1] ?? null;
+    $('.ov-spm').textContent = [spmLabel(seg.intensity), comingUpLabel(next)]
+      .filter(Boolean)
+      .join(' · ');
     $('.ov-count').textContent = formatCountdown(state.segmentRemainingSec);
-    const pct = seg.durationSec ? (state.segmentElapsedSec / seg.durationSec) * 100 : 0;
+    // Bar tracks overall workout progress (the countdown already covers the segment).
+    const totalDuration = state.totalElapsedSec + state.totalRemainingSec;
+    const pct = totalDuration ? (state.totalElapsedSec / totalDuration) * 100 : 0;
     const bar = $('.ov-bar > span') as HTMLElement;
     bar.style.width = `${Math.min(100, pct)}%`;
     bar.style.background = meta.color;
@@ -128,12 +147,59 @@ export function mountOverlay(
     if (e.type === 'transition') flash();
   });
 
-  root.addEventListener('click', (ev) => {
-    if ((ev.target as HTMLElement).closest('.ov-ctrls')) return; // controls handled below
+  const DRAG_THRESHOLD_PX = 4;
+  const togglePause = () => {
     const st = engine.getState();
     if (st.status === 'paused') engine.resume();
     else engine.pause();
-  });
+  };
+
+  if (opts.onDrag) {
+    root.style.cursor = 'grab';
+    let active = false;
+    let dragging = false;
+    let startX = 0, startY = 0, lastX = 0, lastY = 0;
+
+    root.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      if ((ev.target as HTMLElement).closest('.ov-ctrls')) return;
+      active = true;
+      dragging = false;
+      startX = lastX = ev.screenX;
+      startY = lastY = ev.screenY;
+      try { root.setPointerCapture(ev.pointerId); } catch { /* jsdom / no pointerId */ }
+    });
+
+    root.addEventListener('pointermove', (ev) => {
+      if (!active) return;
+      if (!dragging && Math.hypot(ev.screenX - startX, ev.screenY - startY) > DRAG_THRESHOLD_PX) {
+        dragging = true;
+        root.style.cursor = 'grabbing';
+      }
+      if (dragging) {
+        opts.onDrag!(ev.screenX - lastX, ev.screenY - lastY);
+        lastX = ev.screenX;
+        lastY = ev.screenY;
+      }
+    });
+
+    const finish = (ev: PointerEvent, asClick: boolean) => {
+      if (!active) return;
+      active = false;
+      root.style.cursor = 'grab';
+      try { root.releasePointerCapture(ev.pointerId); } catch { /* jsdom / no pointerId */ }
+      // a clean pointerup with no real movement is a click; a pointercancel is
+      // the OS aborting the gesture and must never toggle pause.
+      if (asClick && !dragging) togglePause();
+    };
+    root.addEventListener('pointerup', (ev) => finish(ev, true));
+    root.addEventListener('pointercancel', (ev) => finish(ev, false));
+  } else {
+    root.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).closest('.ov-ctrls')) return;
+      togglePause();
+    });
+  }
 
   $('.ov-ctrls').addEventListener('click', (ev) => {
     const btn = (ev.target as HTMLElement).closest('button');

@@ -30,6 +30,7 @@ function runSession(payload: SessionPayload) {
   let density: Density = prefs.density;
   const mounted = mountOverlay(document, engine, {
     density,
+    segments,
     onToggleDensity: () => {
       density = density === 'pill' ? 'coach' : 'pill';
       storage.setPrefs({ density }); // shared origin → setup picks it up next time
@@ -39,6 +40,7 @@ function runSession(payload: SessionPayload) {
       cancelAnimationFrame(rafId);
       window.electronAPI?.stopSession();
     },
+    onDrag: (dx, dy) => window.electronAPI?.moveOverlayBy(dx, dy),
   });
 
   const step = () => {

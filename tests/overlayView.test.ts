@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { formatCountdown, spmText, mountOverlay, densityIcon } from '../src/ui/overlayView';
+import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
+import type { Segment } from '../src/core/types';
 
 describe('formatCountdown', () => {
   it('formats m:ss with ceil', () => {
@@ -11,10 +12,26 @@ describe('formatCountdown', () => {
   });
 });
 
-describe('spmText', () => {
-  it('renders label and recommended spm', () => {
-    expect(spmText('hard')).toBe('Hard · 28 spm');
-    expect(spmText('allout')).toBe('All-out · 30–32 spm');
+describe('spmLabel', () => {
+  it('renders just the recommended spm, with no intensity word', () => {
+    expect(spmLabel('easy')).toBe('24 spm');
+    expect(spmLabel('hard')).toBe('28 spm');
+    expect(spmLabel('allout')).toBe('30–32 spm');
+  });
+});
+
+describe('comingUpLabel', () => {
+  it('names the next segment by its label, falling back to intensity', () => {
+    expect(comingUpLabel({ id: 'n', intensity: 'hard', durationSec: 60 })).toBe('next: Hard');
+    expect(comingUpLabel({ id: 'n', intensity: 'allout', durationSec: 60 })).toBe('next: All-out');
+    expect(
+      comingUpLabel({ id: 'n', intensity: 'easy', durationSec: 60, label: 'Warm up' }),
+    ).toBe('next: Warm up');
+  });
+
+  it('is empty when there is no next segment', () => {
+    expect(comingUpLabel(null)).toBe('');
+    expect(comingUpLabel(undefined)).toBe('');
   });
 });
 
@@ -51,7 +68,7 @@ describe('mountOverlay', () => {
     const engine = fakeEngine(runningState);
     mountOverlay(document, engine as never, { density: 'coach' });
     expect(document.querySelector('.ov-label')?.textContent).toContain('Hard');
-    expect(document.querySelector('.ov-spm')?.textContent).toBe('Hard · 28 spm');
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
     expect(document.querySelector('.ov-count')?.textContent).toBe('0:27');
   });
 
@@ -60,6 +77,15 @@ describe('mountOverlay', () => {
     mountOverlay(document, engine as never, { density: 'pill' });
     (document.querySelector('.ov-root') as HTMLElement).click();
     expect(engine.calls).toContain('pause');
+  });
+
+  it('fills the progress bar by overall workout progress, not segment progress', () => {
+    // segment progress would be 33/60 = 55%; overall is 60/240 = 25%
+    const state: SessionState = { ...runningState, totalElapsedSec: 60, totalRemainingSec: 180 };
+    const engine = fakeEngine(state);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    const bar = document.querySelector('.ov-bar > span') as HTMLElement;
+    expect(bar.style.width).toBe('25%');
   });
 });
 
@@ -85,5 +111,139 @@ describe('density toggle button', () => {
     mounted.setDensity('coach');
     expect(btn.textContent).toBe('⤡');
     expect(btn.getAttribute('title')).toBe('Collapse');
+  });
+});
+
+const pausedState: SessionState = { ...runningState, status: 'paused' };
+
+describe('play/pause button is state-aware', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('shows the pause glyph and title while running', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    const btn = document.querySelector('[data-act="pause"]') as HTMLElement;
+    expect(btn.textContent).toBe('⏸');
+    expect(btn.getAttribute('title')).toBe('Pause');
+  });
+
+  it('shows the play glyph and title while paused', () => {
+    const engine = fakeEngine(pausedState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    const btn = document.querySelector('[data-act="pause"]') as HTMLElement;
+    expect(btn.textContent).toBe('⏵');
+    expect(btn.getAttribute('title')).toBe('Resume');
+  });
+});
+
+function ptr(type: string, screenX: number, screenY: number) {
+  return new MouseEvent(type, { screenX, screenY, button: 0, bubbles: true });
+}
+
+describe('drag vs click on the overlay body', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('dragging past the threshold calls onDrag with deltas and does not pause', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    root.dispatchEvent(ptr('pointerdown', 100, 100));
+    root.dispatchEvent(ptr('pointermove', 110, 105)); // 11.2px > 4px threshold
+    root.dispatchEvent(ptr('pointermove', 120, 105)); // +10, +0
+    root.dispatchEvent(ptr('pointerup', 120, 105));
+    expect(deltas).toEqual([[10, 5], [10, 0]]);
+    expect(engine.calls).not.toContain('pause');
+  });
+
+  it('a sub-threshold press is a click that toggles pause', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    root.dispatchEvent(ptr('pointerdown', 100, 100));
+    root.dispatchEvent(ptr('pointermove', 102, 101)); // 2.2px < 4px threshold
+    root.dispatchEvent(ptr('pointerup', 102, 101));
+    expect(deltas).toEqual([]);
+    expect(engine.calls).toContain('pause');
+  });
+
+  it('pointerdown on a control does not start a drag', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'coach',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const nextBtn = document.querySelector('[data-act="next"]') as HTMLElement;
+    nextBtn.dispatchEvent(ptr('pointerdown', 100, 100));
+    nextBtn.dispatchEvent(ptr('pointermove', 130, 130));
+    nextBtn.dispatchEvent(ptr('pointerup', 130, 130));
+    expect(deltas).toEqual([]);
+    expect(engine.calls).not.toContain('pause');
+  });
+
+  it('without onDrag, a body click still toggles pause', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    (document.querySelector('.ov-root') as HTMLElement).click();
+    expect(engine.calls).toContain('pause');
+  });
+
+  it('pointercancel ends the gesture without toggling pause', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    root.dispatchEvent(ptr('pointerdown', 100, 100));
+    root.dispatchEvent(ptr('pointercancel', 100, 100));
+    // gesture is over; a later move must not drag, and no pause was toggled
+    root.dispatchEvent(ptr('pointermove', 200, 200));
+    expect(deltas).toEqual([]);
+    expect(engine.calls).not.toContain('pause');
+  });
+});
+
+const statusSegments: Segment[] = [
+  { id: 's0', intensity: 'easy', durationSec: 60 },
+  { id: 's1', intensity: 'hard', durationSec: 60 },
+  { id: 's2', intensity: 'allout', durationSec: 60 },
+];
+
+describe('status line (spm + coming up)', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('shows the spm and the next segment when there is one', () => {
+    // runningState.currentIndex === 1 → next is statusSegments[2] (all-out)
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach', segments: statusSegments });
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm · next: All-out');
+  });
+
+  it('shows only the spm on the final segment', () => {
+    const lastState: SessionState = {
+      ...runningState,
+      currentIndex: 2,
+      segment: statusSegments[2],
+      totalSegments: 3,
+    };
+    const engine = fakeEngine(lastState);
+    mountOverlay(document, engine as never, { density: 'coach', segments: statusSegments });
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('30–32 spm');
+  });
+
+  it('shows only the spm when no segments are provided', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
   });
 });
