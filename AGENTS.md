@@ -13,10 +13,21 @@ npm test               # Vitest, run once
 npm run test:watch     # Vitest, watch
 npm run typecheck      # tsc --noEmit
 npm run build          # Vite multi-page build (index.html + overlay.html)
+npm run harness        # Render the real overlay to .harness/overlay.html (visual dev tool)
 npm run spike:electron # Standalone Electron overlay spike (manual)
 ```
 
 Run a single test file: `npx vitest run tests/<name>.test.ts`.
+
+**Overlay visual harness** (`npm run harness`, source in `tools/`): renders the
+**real** overlay — the exact `OVERLAY_CSS` + the DOM `mountOverlay` produces — for
+every density / intensity / status into a single self-contained
+`.harness/overlay.html` (gitignored). Open it in any browser over `file://`
+(jsdom can't run the CSS animation; a real browser can). A control bar freezes the
+stroke animation at catch / drive / finish / recovery or scrubs it, so layout
+checks and screenshots are deterministic. It runs under Vitest only to borrow the
+jsdom env + TS transpile; it has its own config so it's excluded from `npm test`,
+and lives in `tools/` so `tsc` ignores it.
 
 ## Architecture
 
