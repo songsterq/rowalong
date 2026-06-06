@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
-import type { Segment } from '../src/core/types';
+import { INTENSITY_META, type Segment } from '../src/core/types';
 
 describe('formatCountdown', () => {
   it('formats m:ss with ceil', () => {
@@ -318,5 +318,39 @@ describe('window-hug resize reporting (onResize)', () => {
     expect(FakeRO.instances[0].disconnected).toBe(false);
     mounted.unmount();
     expect(FakeRO.instances[0].disconnected).toBe(true);
+  });
+});
+
+describe('stroke pace bar', () => {
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+
+  it('renders the stroke fill and paces it to the segment spm + color', () => {
+    // runningState.segment.intensity === 'hard' → 60/28 = 2.142.. → "2.14s"
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+    expect(document.querySelector('.ov-stroke-fill')).not.toBeNull();
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.14s');
+    expect(root.style.getPropertyValue('--stroke-color')).toBe(INTENSITY_META.hard.color);
+  });
+
+  it('keeps the countdown in a row beside the stroke widget', () => {
+    const engine = fakeEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    const row = document.querySelector('.ov-count-row') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.querySelector('.ov-count')).not.toBeNull();
+    expect(row.querySelector('.ov-stroke-fill')).not.toBeNull();
+  });
+
+  it('paces an all-out segment to a clean 2.00s', () => {
+    const state: SessionState = {
+      ...runningState,
+      segment: { id: 'a', intensity: 'allout', durationSec: 60 },
+    };
+    const engine = fakeEngine(state);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
   });
 });
