@@ -41,6 +41,7 @@ function runSession(payload: SessionPayload) {
       window.electronAPI?.stopSession();
     },
     onDrag: (dx, dy) => window.electronAPI?.moveOverlayBy(dx, dy),
+    onResize: (h) => window.electronAPI?.setOverlayHeight(h),
   });
 
   const step = () => {

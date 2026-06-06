@@ -22,7 +22,10 @@ let setupWin = null;
 let overlayWin = null;
 
 // Overlay window default size + enforced minimum (Electron minWidth/minHeight).
-const OVERLAY_DEFAULTS = { width: 250, height: 240, minWidth: 200, minHeight: 180 };
+// minHeight is a small safety floor only — the card's measured height drives the
+// real window height (see the 'set-overlay-height' handler). It must stay below the
+// compact pill (~140px) or it would clamp the hug and leave a dead strip.
+const OVERLAY_DEFAULTS = { width: 250, height: 240, minWidth: 200, minHeight: 80 };
 
 // Persist the overlay window's last bounds in userData (the renderer's localStorage
 // is not readable from the main process at window-creation time). Best-effort: any
@@ -132,6 +135,15 @@ ipcMain.on('move-overlay-by', (_event, { dx, dy }) => {
     const [x, y] = overlayWin.getPosition();
     overlayWin.setPosition(Math.round(x + dx), Math.round(y + dy));
   }
+});
+
+ipcMain.on('set-overlay-height', (_event, height) => {
+  if (!overlayWin || overlayWin.isDestroyed()) return;
+  if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0) return;
+  // Keep current width + position (x/y); only the bottom edge moves so the card
+  // stays anchored at the top-left.
+  const [w] = overlayWin.getContentSize();
+  overlayWin.setContentSize(w, Math.ceil(height));
 });
 
 app.whenReady().then(() => {
