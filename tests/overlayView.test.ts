@@ -169,4 +169,20 @@ describe('drag vs click on the overlay body', () => {
     (document.querySelector('.ov-root') as HTMLElement).click();
     expect(engine.calls).toContain('pause');
   });
+
+  it('pointercancel ends the gesture without toggling pause', () => {
+    const engine = fakeEngine(runningState);
+    const deltas: Array<[number, number]> = [];
+    mountOverlay(document, engine as never, {
+      density: 'pill',
+      onDrag: (dx, dy) => deltas.push([dx, dy]),
+    });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    root.dispatchEvent(ptr('pointerdown', 100, 100));
+    root.dispatchEvent(ptr('pointercancel', 100, 100));
+    // gesture is over; a later move must not drag, and no pause was toggled
+    root.dispatchEvent(ptr('pointermove', 200, 200));
+    expect(deltas).toEqual([]);
+    expect(engine.calls).not.toContain('pause');
+  });
 });

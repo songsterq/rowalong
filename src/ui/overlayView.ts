@@ -171,15 +171,17 @@ export function mountOverlay(
       }
     });
 
-    const finish = (ev: PointerEvent) => {
+    const finish = (ev: PointerEvent, asClick: boolean) => {
       if (!active) return;
       active = false;
       root.style.cursor = 'grab';
-      try { root.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
-      if (!dragging) togglePause(); // a press with no real movement is a click
+      try { root.releasePointerCapture(ev.pointerId); } catch { /* jsdom / no pointerId */ }
+      // a clean pointerup with no real movement is a click; a pointercancel is
+      // the OS aborting the gesture and must never toggle pause.
+      if (asClick && !dragging) togglePause();
     };
-    root.addEventListener('pointerup', finish);
-    root.addEventListener('pointercancel', finish);
+    root.addEventListener('pointerup', (ev) => finish(ev, true));
+    root.addEventListener('pointercancel', (ev) => finish(ev, false));
   } else {
     root.addEventListener('click', (ev) => {
       if ((ev.target as HTMLElement).closest('.ov-ctrls')) return;
