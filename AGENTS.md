@@ -74,16 +74,19 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
 
 ## Gotchas (non-obvious — read before changing the shell or generator)
 
-- **macOS over-fullscreen needs an accessory app.** The Electron overlay only
-  floats over *another app's* native fullscreen (e.g. Apple TV.app) when the app
-  runs as a **dock-less accessory** process: `electron/app.cjs` calls
-  `app.dock.hide()` and the overlay uses `setVisibleOnAllWorkspaces(true, {
-  visibleOnFullScreen: true, skipTransformProcessType: true })`. A normal
-  Dock-icon variant (using Electron's activation-policy transform) was tried and
-  **failed to float over Apple TV in practice**. So there is intentionally **no
-  Dock icon** — do not "fix" that by removing `app.dock.hide()`. (Spec §16.) If a
-  Dock icon ever becomes a hard requirement, the path is a native Swift
-  non-activating `NSPanel`.
+- **macOS over-fullscreen uses a panel window.** The Electron overlay floats over
+  *another app's* native fullscreen (e.g. Apple TV.app) by being a **non-activating
+  `NSPanel`**: `electron/app.cjs` creates the overlay `BrowserWindow` with
+  `type: 'panel'` and keeps `setAlwaysOnTop(true, 'screen-saver')` +
+  `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true,
+  skipTransformProcessType: true })`. The panel floats independent of
+  Dock/accessory status, so the app runs as a **normal Dock (Regular) app** — no
+  `app.dock.hide()`. **History (don't repeat):** an earlier Dock-icon attempt that
+  kept a *normal window* and relied on Electron's activation-policy transform
+  (omitting `skipTransformProcessType`) **failed to float over Apple TV** and was
+  reverted; the panel is what lets the Dock icon and the float coexist. Verified
+  on macOS over Apple TV native fullscreen. (Spec §16 + the 2026-06-06
+  dock-icon-panel-overlay design.)
 - **Document PiP cannot cross into native-app fullscreen** (browser video only) —
   that limitation is the entire reason the Electron shell exists.
 - **`generator.ts` and `pushStyles.ts` work in 5-second units**, so every duration
