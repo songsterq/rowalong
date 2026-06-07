@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RowAlong — rowing intervals that ride over whatever you're watching</title>
+  <meta name="description" content="A floating, always-on-top rowing interval coach for macOS. It rides over browser video and native fullscreen apps, showing intensity, recommended stroke rate, a live pace bar, and a countdown." />
+
+  <meta property="og:title" content="RowAlong" />
+  <meta property="og:description" content="Rowing intervals that ride on top of whatever you're watching." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="icon.png" />
+  <meta name="theme-color" content="#121214" />
+
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="apple-touch-icon" href="icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;700;800&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===================================================================
+       DOWNLOAD URL — single point of edit.
+       Replace the href on BOTH download buttons (search "DOWNLOAD-URL")
+       with your Cloudflare R2 public URL for the DMG, e.g.
+       https://pub-xxxxxxxx.r2.dev/RowAlong-1.0.0-arm64.dmg
+       =================================================================== -->
+
+  <header class="site-header" id="top">
+    <div class="wrap header-inner">
+      <a class="wordmark" href="#top" aria-label="RowAlong home">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>
+        RowAlong
+      </a>
+      <!-- DOWNLOAD-URL -->
+      <a class="header-cta" href="https://REPLACE-WITH-YOUR-R2-PUBLIC-HOST/RowAlong-1.0.0-arm64.dmg">Download</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============================ HERO ============================ -->
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow reveal" data-d="1">Rowing interval coach · macOS</p>
+          <h1 class="reveal" data-d="2">Row along to<br><span class="accent">whatever you're watching.</span></h1>
+          <p class="hero-lede reveal" data-d="3">A small, always-on-top overlay paces your intervals over the film, match, or show already on your screen. No second device, no tab to babysit.</p>
+
+          <div class="dl-group reveal" data-d="4">
+            <!-- DOWNLOAD-URL -->
+            <a class="btn-dl" href="https://REPLACE-WITH-YOUR-R2-PUBLIC-HOST/RowAlong-1.0.0-arm64.dmg">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+              Download for Mac
+            </a>
+            <p class="dl-meta">
+              <span>macOS</span><span class="dot" aria-hidden="true"></span>
+              <span>Apple Silicon</span><span class="dot" aria-hidden="true"></span>
+              <span>free</span>
+            </p>
+            <p class="dl-note">First launch: right-click the app and choose <b>Open</b>. It's ad-hoc signed, so Gatekeeper asks once.</p>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal" data-d="3">
+          <div class="screen">
+            <img class="screen-video" src="hero-bg.jpg" alt="Alpine peaks above a sea of cloud at sunset, the kind of footage playing while you row" />
+            <span class="screen-tag"><span class="live" aria-hidden="true"></span>Now playing</span>
+
+            <!-- The app's actual overlay, re-created in CSS, floating in the corner. -->
+            <div class="ov-mount" aria-label="RowAlong overlay, showing a hard interval">
+              <div class="ov-root" role="img" aria-label="Hard interval, 28 strokes per minute, 0 minutes 45 seconds remaining">
+                <div class="ov-head">
+                  <div class="ov-headcol">
+                    <div class="ov-label">Hard</div>
+                    <div class="ov-spm">28 spm · next: easy</div>
+                    <div class="ov-count">0:45</div>
+                  </div>
+                  <div class="ov-stroke" aria-hidden="true">
+                    <div class="ov-stroke-track"><span class="ov-stroke-fill"></span></div>
+                    <div class="ov-stroke-cap"><span class="ov-cap-drive">Drive</span><span class="ov-cap-recover">Recover</span></div>
+                  </div>
+                </div>
+                <div class="ov-bar"><span></span></div>
+                <div class="ov-extra"><span>Block 4 / 7</span><span>12:30 left</span></div>
+                <div class="ov-brand" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>
+                  <span>RowAlong</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ramp-rule" />
+
+    <!-- ========================== FEATURES ========================== -->
+    <section class="features">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">What it does</p>
+          <h2>A coach in the corner, not another screen to mind.</h2>
+        </div>
+
+        <div class="spec">
+          <div class="spec-row" style="--c: var(--easy)">
+            <div class="spec-num">01</div>
+            <h3 class="spec-title">Floats over anything</h3>
+            <p class="spec-body">Rides above browser video <b>and</b> native macOS fullscreen apps, the same window staying put whether you're in a streaming tab or a full-screen player.</p>
+          </div>
+          <div class="spec-row" style="--c: var(--medium)">
+            <div class="spec-num">02</div>
+            <h3 class="spec-title">Workouts, generated</h3>
+            <p class="spec-body">Warm-up, work pushes, and cool-down built for you in <b>10, 20, or 30 minutes</b>. Pick a push strategy, tweak any block, and save your own as a template.</p>
+          </div>
+          <div class="spec-row" style="--c: var(--hard)">
+            <div class="spec-num">03</div>
+            <h3 class="spec-title">Stroke-rate coaching</h3>
+            <p class="spec-body">Each interval shows a recommended stroke rate with a live <b>drive / recovery pace bar</b> to row against, plus tone cues on every transition so you can keep your eyes on the show.</p>
+          </div>
+          <div class="spec-row" style="--c: var(--allout)">
+            <div class="spec-num">04</div>
+            <h3 class="spec-title">Stays out of the way</h3>
+            <p class="spec-body">Shrink it to a <b>minimal pill</b> of just the numbers, or open coach mode for the full readout. Click to pause, drag it to any corner.</p>
+          </div>
+          <div class="spec-row" style="--c: var(--fg-dim)">
+            <div class="spec-num">05</div>
+            <h3 class="spec-title">Local and private</h3>
+            <p class="spec-body">Runs entirely on your Mac. <b>No account, no tracking</b>, nothing leaves the machine. Templates and preferences are stored locally.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== HOW IT WORKS ======================== -->
+    <section class="how">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2>Three steps, then row.</h2>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <span class="k">Step 01</span>
+            <h3>Build a session</h3>
+            <p>Choose a length and strategy, or load a saved template. Fine-tune the blocks if you like.</p>
+          </div>
+          <div class="step">
+            <span class="k">Step 02</span>
+            <h3>Start your show</h3>
+            <p>Press start. The overlay lifts out into its own always-on-top window over whatever's playing.</p>
+          </div>
+          <div class="step">
+            <span class="k">Step 03</span>
+            <h3>Follow the pace</h3>
+            <p>Match the stroke bar, watch the countdown, listen for the cues. Click to pause any time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================= CLOSING CTA ========================= -->
+    <section class="wrap">
+      <div class="cta">
+        <h2>Get RowAlong</h2>
+        <p>One download, runs locally. Built for Apple Silicon Macs.</p>
+        <div class="dl-group">
+          <!-- DOWNLOAD-URL -->
+          <a class="btn-dl" href="https://REPLACE-WITH-YOUR-R2-PUBLIC-HOST/RowAlong-1.0.0-arm64.dmg">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+            Download for Mac
+          </a>
+          <p class="dl-meta">
+            <span>macOS</span><span class="dot" aria-hidden="true"></span>
+            <span>Apple Silicon</span><span class="dot" aria-hidden="true"></span>
+            <span>v1.0.0</span>
+          </p>
+          <p class="dl-note">First launch: right-click the app and choose <b>Open</b>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span class="wordmark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>
+        RowAlong
+      </span>
+      <span>Endless Rain Studio · v1.0.0</span>
+    </div>
+  </footer>
+
+  <script>
+    // Hairline under the header once the page scrolls.
+    const header = document.querySelector('.site-header');
+    const onScroll = () => header.setAttribute('data-scrolled', String(window.scrollY > 8));
+    onScroll();
+    addEventListener('scroll', onScroll, { passive: true });
+  </script>
+</body>
+</html>
