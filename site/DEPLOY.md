@@ -17,15 +17,19 @@ This `site/` folder is a self-contained static site. No build step.
 
 ## The download button
 
-The DMG is hosted in **Cloudflare R2**, not on Pages. The button points at the
-R2 public URL.
+The DMG is hosted in **Cloudflare R2**, not on Pages. The three `DOWNLOAD-URL`
+hrefs in `index.html` (header, hero, closing band) currently point at:
 
-1. Create an R2 bucket and upload `release/RowAlong-1.0.0-arm64.dmg`.
-2. Enable public access (an `https://pub-<hash>.r2.dev` URL, or attach a custom
-   domain like `https://dl.rowalong.app`).
-3. In `index.html`, replace every `DOWNLOAD-URL` placeholder href
-   (`https://REPLACE-WITH-YOUR-R2-PUBLIC-HOST/RowAlong-1.0.0-arm64.dmg`) with the
-   real public URL. There are three: the header, the hero, and the closing band.
+```
+https://rowalongcdn.endlessrainstudio.com/release/RowAlong-1.0.0-arm64.dmg
+```
+
+To set up or move it:
+
+1. Upload `release/RowAlong-1.0.0-arm64.dmg` to the R2 bucket behind that host.
+2. Make sure the object is publicly readable at the URL above.
+3. If the host or path changes, update every `DOWNLOAD-URL` href in `index.html`
+   (search for `DOWNLOAD-URL`; there are three).
 
 To bump the version later, re-upload the new DMG and update the filename/version
 strings in `index.html` (`v1.0.0` appears in the meta line and footer).
