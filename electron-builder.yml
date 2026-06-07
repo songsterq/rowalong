@@ -1,5 +1,8 @@
 appId: com.endlessrainstudio.rowalong
 productName: RowAlong
+# No Developer ID → electron-builder skips signing; this hook ad-hoc signs the
+# bundle so it launches on Apple Silicon with our identifier (local, no notarize).
+afterPack: tools/after-pack.cjs
 directories:
   output: release
   buildResources: build
