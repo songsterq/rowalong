@@ -49,11 +49,13 @@ export const OVERLAY_CSS = `
   .ov-ctrls { gap:12px; justify-content:center; margin-top:10px; font-size:16px; }
   .ov-ctrls button { background:none; border:none; color:#fff; cursor:pointer; font-size:16px; opacity:.85; }
   /* Brand signature: a quiet footer that reveals with the controls (coach mode or
-     hover), so heads-down pill mode stays pure numbers and the countdown never shifts. */
+     hover), so heads-down pill mode stays pure numbers and the countdown never shifts.
+     Matches the landing/setup wordmark — Saira, mixed case, orange waves mark — but
+     kept dim so it never competes with the intensity colour. */
   .ov-brand { display:none; align-items:center; justify-content:center; gap:6px;
-    margin-top:12px; font-size:10px; font-weight:700; letter-spacing:.14em;
-    text-transform:uppercase; opacity:.4; }
-  .ov-brand svg { width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:2;
+    margin-top:12px; font-family:"Saira", -apple-system, system-ui, sans-serif;
+    font-size:11px; font-weight:700; letter-spacing:.02em; opacity:.55; }
+  .ov-brand svg { width:13px; height:13px; fill:none; stroke:#ff8c42; stroke-width:2;
     stroke-linecap:round; stroke-linejoin:round; }
   .ov-root[data-density="coach"] .ov-brand { display:flex; }
   .ov-root:hover .ov-brand { display:flex; }
@@ -131,6 +133,18 @@ export function mountOverlay(
   const style = doc.createElement('style');
   style.textContent = OVERLAY_CSS;
   doc.head.appendChild(style);
+
+  // Wordmark font (Saira) for the brand footer, matching the landing/setup header.
+  // Loaded as a non-blocking <link> so the overlay still paints instantly and falls
+  // back to the system stack when offline. Injected once per host document (works in
+  // the browser PiP document and the Electron overlay window alike).
+  if (!doc.getElementById('ov-brand-font')) {
+    const font = doc.createElement('link');
+    font.id = 'ov-brand-font';
+    font.rel = 'stylesheet';
+    font.href = 'https://fonts.googleapis.com/css2?family=Saira:wght@700&display=swap';
+    doc.head.appendChild(font);
+  }
 
   const root = doc.createElement('div');
   root.className = 'ov-root';
