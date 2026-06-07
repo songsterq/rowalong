@@ -19,6 +19,8 @@ export interface ElectronAPI {
   setOverlayHeight(height: number): void;
   /** Overlay window: receive the session payload from main once after load. */
   onSessionPayload(cb: (payload: SessionPayload) => void): void;
+  /** Setup window: notified when the overlay window closes (session ended). */
+  onSessionEnded(cb: () => void): void;
 }
 
 declare global {

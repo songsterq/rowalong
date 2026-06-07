@@ -93,14 +93,19 @@ function showReopen(engine: SessionEngine) {
 async function startSession(segments: Segment[]) {
   if (window.electronAPI) {
     // Electron: hand the session off to the native always-on-top overlay window,
-    // which floats over native-app fullscreen (where PiP can't).
+    // which floats over native-app fullscreen (where PiP can't). The setup button
+    // becomes "Stop workout" so a second Start can't be sent (it would race the
+    // overlay window and crash the main process); main fires onSessionEnded to reset.
     window.electronAPI.startSession({ segments, prefs: storage.getPrefs() });
+    sessionActive = true;
+    setup.setSessionActive(true);
     return;
   }
   // Ignore repeat Start clicks: a session is already running (or paused with the
   // reopen bar showing). Re-running would orphan the live overlay/engine and throw.
   if (sessionActive) return;
   sessionActive = true;
+  setup.setSessionActive(true);
   tearingDown = false;
   currentSegments = segments;
   const engine = new SessionEngine(segments);
@@ -128,9 +133,23 @@ async function startSession(segments: Segment[]) {
   runLoop(engine);
 }
 
+// Stop an active session from the setup window's toggle button.
+function stopSession() {
+  if (window.electronAPI) {
+    // Tell main to close the overlay window; it echoes back onSessionEnded, but
+    // reset the toggle now so the button feels instant.
+    window.electronAPI.stopSession();
+    sessionActive = false;
+    setup.setSessionActive(false);
+    return;
+  }
+  endSession();
+}
+
 function endSession() {
   tearingDown = true;
   sessionActive = false;
+  setup.setSessionActive(false);
   cancelAnimationFrame(rafId);
   mounted?.unmount();
   mounted = null;
@@ -141,4 +160,12 @@ function endSession() {
   document.querySelector('.reopen-bar')?.remove();
 }
 
-mountSetup(app, { storage, onStart: startSession });
+const setup = mountSetup(app, { storage, onStart: startSession, onStop: stopSession });
+
+// Electron only: the overlay runs in its own window, so the setup page learns the
+// session ended (natural completion, the overlay's stop button, or the window
+// closing) only through this signal — reset the Start/Stop toggle when it fires.
+window.electronAPI?.onSessionEnded(() => {
+  sessionActive = false;
+  setup.setSessionActive(false);
+});

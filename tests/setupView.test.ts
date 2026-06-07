@@ -48,6 +48,36 @@ describe('setup view', () => {
     expect(onStart.mock.calls[0][0].length).toBeGreaterThan(0);
   });
 
+  it('toggles to Stop while a session is active and calls onStop instead of onStart', () => {
+    const onStart = vi.fn();
+    const onStop = vi.fn();
+    const setup = mountSetup(container, { storage, onStart, onStop });
+    const btn = container.querySelector('.setup-start') as HTMLButtonElement;
+    expect(btn.textContent).toContain('Start workout');
+
+    setup.setSessionActive(true);
+    expect(btn.textContent).toContain('Stop workout');
+
+    btn.click();
+    expect(onStop).toHaveBeenCalledOnce();
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('reverts to Start once the session ends', () => {
+    const onStart = vi.fn();
+    const onStop = vi.fn();
+    const setup = mountSetup(container, { storage, onStart, onStop });
+    const btn = container.querySelector('.setup-start') as HTMLButtonElement;
+
+    setup.setSessionActive(true);
+    setup.setSessionActive(false);
+    expect(btn.textContent).toContain('Start workout');
+
+    btn.click();
+    expect(onStart).toHaveBeenCalledOnce();
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
   it('Save persists the edited segments as a template', () => {
     mountSetup(container, { storage, onStart: () => {} });
     (container.querySelector('.setup-minutes') as HTMLSelectElement).value = '20';

@@ -237,7 +237,13 @@ export const SETUP_CSS = `
   .setup-start:hover { transform: translateY(-2px);
     box-shadow: 0 12px 34px oklch(0.6 0.2 35 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.3); }
   .setup-start svg { width: 17px; height: 17px; fill: currentColor; }
-  .setup-startbar[data-empty="true"] .setup-start { opacity: 0.4; pointer-events: none; }
+  /* Stop state: neutral surface so it reads as "running, click to end" not "go". */
+  .setup-start.is-active { color: oklch(0.97 0.004 80 / 0.92);
+    background: linear-gradient(135deg, oklch(0.32 0.02 50), oklch(0.26 0.02 50));
+    box-shadow: 0 8px 26px oklch(0 0 0 / 0.4), inset 0 1px 0 oklch(1 0 0 / 0.12); }
+  .setup-start.is-active:hover { box-shadow: 0 12px 34px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.12); }
+  /* While active the workout is non-empty, but keep Stop clickable regardless. */
+  .setup-startbar[data-empty="true"] .setup-start:not(.is-active) { opacity: 0.4; pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) { .setup *, .setup-startbar * { transition: none !important; } }
 `;

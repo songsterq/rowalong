@@ -13,6 +13,14 @@ const INTENSITY_ORDER: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
 export interface SetupOpts {
   storage: Storage;
   onStart: (segments: Segment[]) => void;
+  /** Called when the start button is clicked while a session is active. */
+  onStop?: () => void;
+}
+
+/** Handle returned by mountSetup so the host can sync the start/stop button. */
+export interface MountedSetup {
+  /** Flip the start button between "Start workout" and "Stop workout". */
+  setSessionActive(active: boolean): void;
 }
 
 export interface WorkoutSummary {
@@ -37,6 +45,7 @@ const ICON = {
   generate: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg>',
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
 };
 
 function injectStyles(doc: Document): void {
@@ -47,7 +56,7 @@ function injectStyles(doc: Document): void {
   doc.head.appendChild(style);
 }
 
-export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
+export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetup {
   injectStyles(container.ownerDocument);
 
   const prefs = opts.storage.getPrefs();
@@ -291,7 +300,21 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
     opts.storage.setPrefs({ muted: (e.target as HTMLInputElement).checked });
   });
 
-  container.querySelector('.setup-start')!.addEventListener('click', () => {
+  // The start button is a Start⇄Stop toggle. While a session is active it stops
+  // the running session instead of launching a second one — under Electron a
+  // second Start would race the overlay window and crash the main process.
+  const startBtn = container.querySelector('.setup-start') as HTMLButtonElement;
+  let sessionActive = false;
+  const setSessionActive = (active: boolean) => {
+    sessionActive = active;
+    startBtn.classList.toggle('is-active', active);
+    startBtn.innerHTML = active ? `${ICON.stop} Stop workout` : `${ICON.play} Start workout`;
+  };
+  startBtn.addEventListener('click', () => {
+    if (sessionActive) {
+      opts.onStop?.();
+      return;
+    }
     const segments = readEditor(editor);
     if (segments.length === 0) return;
     opts.onStart(segments);
@@ -300,4 +323,6 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): void {
   renderTemplates();
   // Start with a ready-to-run workout so the page is never an empty form.
   renderWorkout(generate(initialMin, { pushStyle: initialStyle }, seed));
+
+  return { setSessionActive };
 }
