@@ -2,7 +2,7 @@
   "name": "rowalong",
   "version": "1.0.0",
   "description": "RowAlong — rowing intervals that ride on top of whatever you're watching.",
-  "main": "index.js",
+  "main": "electron/app.cjs",
   "directories": {
     "doc": "docs"
   },

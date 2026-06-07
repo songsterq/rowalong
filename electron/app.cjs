@@ -17,6 +17,17 @@ const { pickStartBounds } = require('./windowBounds.cjs');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 const DEV_URL = process.env.WH_DEV_URL || 'http://localhost:5173';
+const isDev = !app.isPackaged;
+
+// In dev, load from the Vite dev server; when packaged, load the built page from
+// dist/ (bundled into app.asar, reachable from electron/.. → dist).
+function loadPage(win, page /* 'index' | 'overlay' */) {
+  if (isDev) {
+    win.loadURL(page === 'index' ? DEV_URL : `${DEV_URL}/${page}.html`);
+  } else {
+    win.loadFile(path.join(__dirname, '..', 'dist', `${page}.html`));
+  }
+}
 
 let setupWin = null;
 let overlayWin = null;
@@ -62,7 +73,7 @@ function createSetupWindow() {
     backgroundColor: '#151310',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
   });
-  setupWin.loadURL(DEV_URL);
+  loadPage(setupWin, 'index');
   setupWin.on('closed', () => {
     setupWin = null;
   });
@@ -112,7 +123,7 @@ function openOverlay(payload) {
   overlayWin.on('resized', saveBounds);
   overlayWin.on('close', saveBounds); // JS-driven setPosition may not fire 'moved'
 
-  overlayWin.loadURL(`${DEV_URL}/overlay.html`);
+  loadPage(overlayWin, 'overlay');
   overlayWin.webContents.once('did-finish-load', () => {
     overlayWin.webContents.send('session-payload', payload);
   });
