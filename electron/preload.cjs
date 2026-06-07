@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // main → overlay window (delivered once after load)
   onSessionPayload: (cb) =>
     ipcRenderer.on('session-payload', (_event, payload) => cb(payload)),
+  // main → setup window: the overlay closed, so the session ended — reset the toggle.
+  onSessionEnded: (cb) => ipcRenderer.on('session-ended', () => cb()),
 });

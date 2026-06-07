@@ -79,16 +79,26 @@ function createSetupWindow() {
   });
 }
 
+// Tell the setup window the session ended so it can flip its button back to
+// "Start workout". Best-effort: no setup window → nothing to update.
+function notifySessionEnded() {
+  if (setupWin && !setupWin.isDestroyed()) setupWin.webContents.send('session-ended');
+}
+
 function openOverlay(payload) {
-  if (overlayWin) {
-    overlayWin.close();
-    overlayWin = null;
-  }
+  // A previous overlay still open? Close it first. The toggle button normally
+  // prevents a second Start, so this is defensive — but it must be race-free:
+  // each window's event handlers below capture their own `win` (not the shared
+  // `overlayWin`), and the 'closed' handler only acts when it's still current,
+  // so a superseded window closing late can't null out the new one. (That stale
+  // closure was the `webContents of null` crash.)
+  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.close();
+  overlayWin = null;
 
   const displays = screen.getAllDisplays().map((d) => d.workArea);
   const start = pickStartBounds(readSavedBounds(), displays, OVERLAY_DEFAULTS);
 
-  overlayWin = new BrowserWindow({
+  const win = new BrowserWindow({
     ...start,
     // macOS non-activating NSPanel: floats over another app's native fullscreen
     // even though the app runs as a normal Dock (Regular) app — this is why we no
@@ -108,8 +118,10 @@ function openOverlay(payload) {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
   });
 
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
-  overlayWin.setVisibleOnAllWorkspaces(true, {
+  overlayWin = win;
+
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true,
     skipTransformProcessType: true,
   });
@@ -117,19 +129,24 @@ function openOverlay(payload) {
   // Remember where the user parks/sizes the overlay. 'moved'/'resized' fire once
   // when the drag/resize finishes, so there's no per-pixel write thrashing.
   const saveBounds = () => {
-    if (overlayWin && !overlayWin.isDestroyed()) writeSavedBounds(overlayWin.getBounds());
+    if (!win.isDestroyed()) writeSavedBounds(win.getBounds());
   };
-  overlayWin.on('moved', saveBounds);
-  overlayWin.on('resized', saveBounds);
-  overlayWin.on('close', saveBounds); // JS-driven setPosition may not fire 'moved'
+  win.on('moved', saveBounds);
+  win.on('resized', saveBounds);
+  win.on('close', saveBounds); // JS-driven setPosition may not fire 'moved'
 
-  loadPage(overlayWin, 'overlay');
-  overlayWin.webContents.once('did-finish-load', () => {
-    overlayWin.webContents.send('session-payload', payload);
+  loadPage(win, 'overlay');
+  win.webContents.once('did-finish-load', () => {
+    if (!win.isDestroyed()) win.webContents.send('session-payload', payload);
   });
-  overlayWin.showInactive(); // show without stealing focus from the video app
-  overlayWin.on('closed', () => {
-    overlayWin = null;
+  win.showInactive(); // show without stealing focus from the video app
+  win.on('closed', () => {
+    // Only act if this is still the current overlay — a window we superseded in a
+    // close+reopen must not null out its replacement or send a stale "ended".
+    if (overlayWin === win) {
+      overlayWin = null;
+      notifySessionEnded();
+    }
   });
 }
 
@@ -138,11 +155,10 @@ ipcMain.on('start-session', (_event, payload) => {
 });
 
 ipcMain.on('stop-session', () => {
-  if (overlayWin) {
-    overlayWin.close();
-    overlayWin = null;
-  }
-  if (setupWin) setupWin.focus();
+  // Close the overlay; its 'closed' handler nulls overlayWin and notifies setup,
+  // so there's exactly one place that ends a session.
+  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.close();
+  if (setupWin && !setupWin.isDestroyed()) setupWin.focus();
 });
 
 ipcMain.on('move-overlay-by', (_event, { dx, dy }) => {
