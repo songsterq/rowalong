@@ -1,7 +1,7 @@
 # Dock Icon + Panel Overlay — Design
 
 **Date:** 2026-06-06
-**Status:** Approved (pending spec review)
+**Status:** Implemented and verified on macOS over Apple TV native fullscreen.
 **Area:** Electron main process (`electron/app.cjs`)
 
 ## Summary
