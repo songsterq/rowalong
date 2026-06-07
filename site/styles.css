@@ -216,9 +216,9 @@ img { display: block; max-width: 100%; }
 .ov-bar > span { display: block; height: 100%; width: 58%; border-radius: 99px; background: var(--hard); }
 .ov-extra { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.6; margin-top: 9px; }
 .ov-brand { display: flex; align-items: center; justify-content: center; gap: 6px;
-  margin-top: 11px; font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; opacity: 0.4; }
-.ov-brand svg { width: 12px; height: 12px; fill: none; stroke: currentColor;
+  margin-top: 11px; font-family: "Saira", -apple-system, system-ui, sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em; opacity: 0.55; }
+.ov-brand svg { width: 12px; height: 12px; fill: none; stroke: #ff8c42;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---- features: a spec sheet, numbered along the effort ramp ---- */
