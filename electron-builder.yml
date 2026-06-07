@@ -1,0 +1,15 @@
+appId: com.endlessrainstudio.rowalong
+productName: RowAlong
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - electron/**
+  - package.json
+mac:
+  category: public.app-category.healthcare-fitness
+  target: [dmg]
+  icon: build/icon.icns
+dmg:
+  title: RowAlong

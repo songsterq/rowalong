@@ -3,16 +3,15 @@
   "version": "1.0.0",
   "description": "RowAlong — rowing intervals that ride on top of whatever you're watching.",
   "main": "electron/app.cjs",
-  "directories": {
-    "doc": "docs"
-  },
   "keywords": [],
-  "author": "",
+  "author": "Endless Rain Studio",
   "license": "ISC",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "pack": "npm run build && electron-builder",
+    "pack:dir": "npm run build && electron-builder --dir",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -24,6 +23,7 @@
   "devDependencies": {
     "concurrently": "^10.0.3",
     "electron": "^42.3.3",
+    "electron-builder": "^26.15.0",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
