@@ -40,15 +40,14 @@ export const SETUP_CSS = `
     height: 52px; z-index: 5; -webkit-app-region: drag; }
 
   /* ---------- header ---------- */
-  .setup .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
-  .setup .brand-mark {
-    width: 42px; height: 42px; border-radius: 12px; background: var(--cta);
-    display: grid; place-items: center; flex: none;
-    box-shadow: 0 6px 20px oklch(0.6 0.18 40 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.25);
-  }
-  .setup .brand-mark svg { width: 22px; height: 22px; stroke: oklch(0.18 0.02 60); stroke-width: 2;
+  /* Wordmark matches the landing page header: an inline orange waves mark and
+     "RowAlong" set in Saira, mixed case, near-white (no filled badge tile). */
+  .setup .brand { display: flex; align-items: center; gap: 11px; margin-bottom: 26px; }
+  .setup .brand-mark { display: grid; place-items: center; flex: none; }
+  .setup .brand-mark svg { width: 28px; height: 28px; stroke: #ff8c42; stroke-width: 2;
     fill: none; stroke-linecap: round; stroke-linejoin: round; }
-  .setup h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+  .setup h1 { margin: 0; font-family: "Saira", -apple-system, system-ui, sans-serif;
+    font-size: 19px; font-weight: 700; letter-spacing: 0.01em; }
   .setup .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--mute); letter-spacing: 0.02em; }
 
   /* ---------- tabs ---------- */
