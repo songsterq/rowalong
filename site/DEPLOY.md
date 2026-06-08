@@ -2,18 +2,28 @@
 
 This `site/` folder is a self-contained static site. No build step.
 
-## Cloudflare Pages
+## Cloudflare Workers (static assets)
 
-1. Push the repo to GitHub (already on `github.com:songsterq/workout-helper`).
-2. In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to Git**, pick this repo.
-3. Build settings:
-   - **Framework preset:** None
-   - **Build command:** *(leave empty)*
-   - **Build output directory:** `site`
-4. Deploy. Cloudflare serves `site/index.html` at the project URL.
+Deployment is driven by **`/wrangler.jsonc` at the repo root** (not in this
+folder). It declares an assets-only Worker that serves `site/`:
 
-> Cloudflare Pages caps individual files at 25 MiB. The DMG is ~118 MB, so it is
-> **not** part of this folder. It lives in Cloudflare R2 (see below).
+```jsonc
+{ "name": "rowalong", "assets": { "directory": "./site" } }
+```
+
+On every push to GitHub (`github.com:songsterq/rowalong`), Cloudflare's
+Workers Build runs `wrangler deploy` from the repo root, finds that config, and
+uploads `site/` — `site/index.html` is served at the project URL. `site/_headers`
+is honored.
+
+> **Why the config lives at the root, not here:** wrangler only looks for its
+> config in the working directory it runs from (the repo root), never in
+> subdirectories. A `wrangler.jsonc` inside `site/` is ignored, and with no root
+> config wrangler tries to auto-configure the root `vite.config.ts` (the Electron
+> app) and fails. Keep the deploy config at the root.
+
+> Cloudflare static assets cap individual files at 25 MiB. The DMG is ~118 MB, so
+> it is **not** part of this folder. It lives in Cloudflare R2 (see below).
 
 ## The download button
 
