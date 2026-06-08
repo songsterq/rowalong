@@ -1,0 +1,18 @@
+{
+  // Deploys the static landing page in `site/` as a Cloudflare Workers
+  // static-assets deployment. This config MUST live at the repo root: the
+  // Cloudflare build runs `wrangler deploy` from the root, and wrangler only
+  // looks for config in the working directory (never in subdirectories). With
+  // no root config, wrangler falls into its framework-setup wizard, detects the
+  // root `vite.config.ts` (the Electron/overlay app — unrelated to the site),
+  // and fails trying to patch a Vite `plugins` array that doesn't exist.
+  //
+  // There is no `main` worker script: this is an assets-only deployment, so
+  // wrangler just uploads `site/` and serves it. `site/_headers` is honored.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rowalong",
+  "compatibility_date": "2026-06-07",
+  "assets": {
+    "directory": "./site"
+  }
+}
