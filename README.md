@@ -41,11 +41,15 @@ Silicon without notarization.
 
 1. Pick a template, or enter total minutes and **Generate** (**Regenerate** for a
    new mix). Optionally edit segments and **Save as template**.
+   <img width="872" height="932" alt="Screenshot 2026-06-08 at 11 44 02 AM" src="https://github.com/user-attachments/assets/e6fcb549-1193-49a9-94e5-81cad86dba73" />
+
 2. Click **Start**:
    - In Chrome, the overlay pops into a Picture-in-Picture window.
    - In the macOS app, it opens as an always-on-top panel.
 
    Drag it to your preferred corner; it floats over fullscreen video.
+   <img width="767" height="653" alt="overlay" src="https://github.com/user-attachments/assets/8c81e411-903f-4e5e-8985-112c1f6ebd7b" />
+
 3. Click the overlay to pause/resume; hover for previous/next/stop and the density
    toggle.
 
