@@ -854,6 +854,7 @@ git commit -m "feat(ui): add history panel with heatmap, streak stats, and recen
 
 **Files:**
 - Modify: `src/ui/setupView.ts`
+- Modify: `src/main.ts` (call-site signature only — all recording wiring is Task 6)
 - Test: `tests/setupView.test.ts` (append; create the file with the imports shown if it does not exist)
 
 **Interfaces:**
@@ -1073,15 +1074,27 @@ Finally, update the bottom of `mountSetup` — render the panel on mount, seed t
 Run: `npx vitest run tests/setupView.test.ts`
 Expected: PASS, 5 tests.
 
-- [ ] **Step 5: Typecheck and full suite**
+- [ ] **Step 5: Keep the browser host compiling**
+
+`onStart` now takes a second argument, which breaks the `src/main.ts` call site.
+Update the signature only — the recorder wiring is Task 6's job. In `src/main.ts`,
+change `startSession` to accept and ignore the name for now:
+
+```ts
+async function startSession(segments: Segment[], _programName: string) {
+```
+
+Do not change anything else in `src/main.ts` in this task.
+
+- [ ] **Step 6: Typecheck and full suite**
 
 Run: `npm run typecheck && npm test`
-Expected: `npm run typecheck` fails in `src/main.ts` — `onStart` now takes two arguments. That is expected and is fixed in Task 6. Confirm the only errors are in `src/main.ts`; all Vitest tests must pass.
+Expected: both clean — no type errors, all tests pass.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/ui/setupView.ts tests/setupView.test.ts
+git add src/ui/setupView.ts src/main.ts tests/setupView.test.ts
 git commit -m "feat(ui): mount history panel in the setup rail and track program provenance"
 ```
 
@@ -1138,7 +1151,7 @@ Change `wireAudio` to also record on natural completion. Replace the `complete` 
     }
 ```
 
-Change `startSession` to take the name and build the recorder. Replace its signature and the Electron branch:
+Change `startSession` to use the name (Task 5 left it as the ignored `_programName`) and build the recorder. Replace its signature and the Electron branch:
 
 ```ts
 async function startSession(segments: Segment[], programName: string) {
@@ -1235,7 +1248,7 @@ Record on an early stop — update the overlay's `onStop`:
 - [ ] **Step 4: Typecheck and full suite**
 
 Run: `npm run typecheck && npm test`
-Expected: both clean — the `src/main.ts` errors from Task 5 are now resolved.
+Expected: both clean.
 
 - [ ] **Step 5: Verify in the browser**
 
