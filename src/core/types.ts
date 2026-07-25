@@ -13,6 +13,19 @@ export interface Template {
   segments: Segment[];
 }
 
+/** One finished (or stopped-early) run of a workout. Segments are snapshotted,
+ *  not referenced: templates can be deleted and generated workouts are never
+ *  saved, so an id reference would leave most history un-rebuildable. */
+export interface SessionRecord {
+  id: string;
+  startedAt: number; // epoch ms
+  elapsedSec: number; // time actually trained
+  plannedSec: number; // sum of segment durations
+  completed: boolean; // reached natural end vs. stopped early
+  programName: string; // 'Quick 20' or '20 min · random'
+  segments: Segment[];
+}
+
 export type SessionStatus = 'idle' | 'running' | 'paused' | 'done';
 
 export interface IntensityMeta {
