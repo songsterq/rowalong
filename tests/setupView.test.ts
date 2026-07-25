@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mountSetup, summarize } from '../src/ui/setupView';
 import { Storage, type KeyValueStore } from '../src/core/storage';
-import type { Segment } from '../src/core/types';
+import type { Segment, SessionRecord } from '../src/core/types';
 
 class Mem implements KeyValueStore {
   m = new Map<string, string>();
@@ -152,5 +152,61 @@ describe('summarize', () => {
 
   it('is all zeros for an empty workout', () => {
     expect(summarize([])).toEqual({ totalSec: 0, blocks: 0, workBlocks: 0 });
+  });
+});
+
+function sess(id: string, name: string): SessionRecord {
+  return {
+    id,
+    startedAt: Date.now() - 3600_000,
+    elapsedSec: 600,
+    plannedSec: 600,
+    completed: true,
+    programName: name,
+    segments: [{ id: `${id}-seg`, intensity: 'hard', durationSec: 600 }],
+  };
+}
+
+describe('setup view history panel', () => {
+  it('renders the history panel on mount', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(container.querySelector('.hist-grid')).not.toBeNull();
+  });
+
+  it('passes a generated program name to onStart', () => {
+    let name = '';
+    const setup = mountSetup(container, {
+      storage,
+      onStart: (_segments: Segment[], programName: string) => (name = programName),
+    });
+    expect(setup).toBeTruthy();
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(name).toMatch(/^\d+ min · \w+$/);
+  });
+
+  it('passes the template name to onStart after loading a template', () => {
+    let name = '';
+    mountSetup(container, {
+      storage,
+      onStart: (_segments: Segment[], programName: string) => (name = programName),
+    });
+    container.querySelector<HTMLButtonElement>('.setup-load')!.click();
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(name).toBe('Quick 20');
+  });
+
+  it('loads a past session into the editor when picked', () => {
+    storage.recordSession(sess('h1', 'Past workout'));
+    mountSetup(container, { storage, onStart: () => {} });
+    container.querySelector<HTMLButtonElement>('.hist-item')!.click();
+    expect(container.querySelectorAll('.seg-row')).toHaveLength(1);
+  });
+
+  it('refreshHistory picks up a record written after mount', () => {
+    const setup = mountSetup(container, { storage, onStart: () => {} });
+    expect(container.querySelectorAll('.hist-item')).toHaveLength(0);
+    storage.recordSession(sess('h2', 'Later workout'));
+    setup.refreshHistory();
+    expect(container.querySelectorAll('.hist-item')).toHaveLength(1);
   });
 });

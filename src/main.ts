@@ -90,7 +90,7 @@ function showReopen(engine: SessionEngine) {
   document.body.appendChild(bar);
 }
 
-async function startSession(segments: Segment[]) {
+async function startSession(segments: Segment[], _programName: string) {
   if (window.electronAPI) {
     // Electron: hand the session off to the native always-on-top overlay window,
     // which floats over native-app fullscreen (where PiP can't). The setup button
