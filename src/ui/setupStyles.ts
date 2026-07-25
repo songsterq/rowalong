@@ -250,4 +250,29 @@ export const SETUP_CSS = `
   .setup-startbar[data-empty="true"] .setup-start:not(.is-active) { opacity: 0.4; pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) { .setup *, .setup-startbar * { transition: none !important; } }
+
+  /* ---------- history ---------- */
+  .setup .hist-stats { display: flex; gap: 16px; margin-bottom: 14px; }
+  .setup .hist-stat b { display: block; font-size: 18px; font-weight: 700;
+    font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .setup .hist-stat span { font-size: 10.5px; color: var(--mute); }
+  .setup .hist-grid { display: grid; grid-auto-flow: column;
+    grid-template-rows: repeat(7, 9px); grid-auto-columns: 9px; gap: 2px; }
+  .setup .hist-cell { border-radius: 2px; background: var(--border-2); }
+  .setup .hist-cell[data-future="true"] { background: transparent; }
+  .setup .hist-cell[data-level="1"] { background: color-mix(in oklab, #ff8c42 28%, transparent); }
+  .setup .hist-cell[data-level="2"] { background: color-mix(in oklab, #ff8c42 50%, transparent); }
+  .setup .hist-cell[data-level="3"] { background: color-mix(in oklab, #ff8c42 74%, transparent); }
+  .setup .hist-cell[data-level="4"] { background: #ff8c42; }
+  .setup .hist-recent { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .setup .hist-item { display: flex; align-items: baseline; gap: 9px; width: 100%;
+    text-align: left; background: var(--inset); border: 1px solid var(--border-2);
+    border-radius: 9px; padding: 7px 10px; color: var(--text); font: inherit;
+    font-size: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .setup .hist-item:hover { border-color: var(--border); background: oklch(0.2 0.006 70); }
+  .setup .hist-when { color: var(--mute); font-size: 11px; min-width: 26px; }
+  .setup .hist-name { flex: 1; font-weight: 650; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .setup .hist-dur { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .setup .hist-empty { margin: 0; font-size: 12px; line-height: 1.5; color: var(--mute); }
 `;
