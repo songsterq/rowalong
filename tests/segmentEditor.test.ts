@@ -73,4 +73,75 @@ describe('segment editor', () => {
     sel.dispatchEvent(new Event('change', { bubbles: true })); // edit intensity
     expect(calls).toBe(4);
   });
+
+  describe('drag-to-reorder', () => {
+    function ptr(type: string, clientY: number) {
+      return new MouseEvent(type, { clientY, button: 0, bubbles: true });
+    }
+
+    function stubRowLayout(container: HTMLElement) {
+      // jsdom has no layout engine, so give every row a fixed 40px-tall slot
+      // (row i occupies [i*40, i*40+40)) for the drag math to compare against.
+      const rows = Array.from(container.querySelectorAll<HTMLElement>('.seg-row'));
+      rows.forEach((row, i) => {
+        row.getBoundingClientRect = () =>
+          ({
+            top: i * 40,
+            bottom: i * 40 + 40,
+            height: 40,
+            left: 0,
+            right: 100,
+            width: 100,
+            x: 0,
+            y: i * 40,
+            toJSON() {},
+          }) as DOMRect;
+      });
+      return rows;
+    }
+
+    it('moves a row when its handle is dragged past a sibling', () => {
+      renderEditor(container, [
+        { id: 'a', intensity: 'hard', durationSec: 45 },
+        { id: 'b', intensity: 'easy', durationSec: 30 },
+        { id: 'c', intensity: 'medium', durationSec: 60 },
+      ]);
+      const rows = stubRowLayout(container);
+      const handle = rows[0].querySelector('.seg-handle')!;
+
+      handle.dispatchEvent(ptr('pointerdown', 10));
+      handle.dispatchEvent(ptr('pointermove', 110)); // past row c's midpoint (100)
+      handle.dispatchEvent(ptr('pointerup', 110));
+
+      expect(readEditor(container).map((s) => s.id)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('does not fire onChange when the pointer never crosses a sibling', () => {
+      let calls = 0;
+      renderEditor(container, segs, { onChange: () => (calls += 1) });
+      const rows = stubRowLayout(container);
+      const handle = rows[0].querySelector('.seg-handle')!;
+
+      handle.dispatchEvent(ptr('pointerdown', 10));
+      handle.dispatchEvent(ptr('pointermove', 12));
+      handle.dispatchEvent(ptr('pointerup', 12));
+
+      expect(calls).toBe(0);
+      expect(readEditor(container).map((s) => s.id)).toEqual(['a', 'b']);
+    });
+
+    it('fires onChange once after a completed reorder drag', () => {
+      let calls = 0;
+      renderEditor(container, segs, { onChange: () => (calls += 1) });
+      const rows = stubRowLayout(container);
+      const handle = rows[0].querySelector('.seg-handle')!;
+
+      handle.dispatchEvent(ptr('pointerdown', 10));
+      handle.dispatchEvent(ptr('pointermove', 60)); // into row b's slot
+      handle.dispatchEvent(ptr('pointerup', 60));
+
+      expect(calls).toBe(1);
+      expect(readEditor(container).map((s) => s.id)).toEqual(['b', 'a']);
+    });
+  });
 });

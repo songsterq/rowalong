@@ -146,7 +146,10 @@ export const SETUP_CSS = `
     border: 1px solid var(--border-2); border-radius: 12px; padding: 9px 12px 9px 10px;
     transition: border-color .15s, background .15s; }
   .setup .seg-row:hover { border-color: var(--border); background: oklch(0.2 0.006 70); }
-  .setup .seg-handle { color: var(--mute); cursor: grab; font-size: 15px; line-height: 1; letter-spacing: -1px; }
+  .setup .seg-row--dragging { opacity: 0.55; border-color: var(--border); }
+  .setup .seg-handle { color: var(--mute); cursor: grab; font-size: 15px; line-height: 1; letter-spacing: -1px;
+    touch-action: none; }
+  .setup .seg-handle:active { cursor: grabbing; }
   .setup .seg-kind { position: relative; display: inline-flex; align-items: center; min-width: 128px;
     background: color-mix(in oklab, var(--c) 16%, transparent);
     border: 1px solid color-mix(in oklab, var(--c) 35%, transparent); border-radius: 9px; }
