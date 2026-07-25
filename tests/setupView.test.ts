@@ -202,6 +202,32 @@ describe('setup view history panel', () => {
     expect(container.querySelectorAll('.seg-row')).toHaveLength(1);
   });
 
+  it('passes the picked session\'s original program name to onStart', () => {
+    storage.recordSession(sess('h1', 'Past workout'));
+    let name = '';
+    mountSetup(container, {
+      storage,
+      onStart: (_segments: Segment[], programName: string) => (name = programName),
+    });
+    container.querySelector<HTMLButtonElement>('.hist-item')!.click();
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(name).toBe('Past workout');
+  });
+
+  it('regenerating via a duration button updates the onStart program name', () => {
+    let name = '';
+    mountSetup(container, {
+      storage,
+      onStart: (_segments: Segment[], programName: string) => (name = programName),
+    });
+    const btn = container.querySelector<HTMLButtonElement>(
+      '.setup-minutes-group button[data-min="10"]',
+    )!;
+    btn.click();
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(name).toMatch(/^10 min · \w+$/);
+  });
+
   it('refreshHistory picks up a record written after mount', () => {
     const setup = mountSetup(container, { storage, onStart: () => {} });
     expect(container.querySelectorAll('.hist-item')).toHaveLength(0);
