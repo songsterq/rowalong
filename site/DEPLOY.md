@@ -31,18 +31,25 @@ The DMG is hosted in **Cloudflare R2**, not on Pages. The three `DOWNLOAD-URL`
 hrefs in `index.html` (header, hero, closing band) currently point at:
 
 ```
-https://rowalongcdn.endlessrainstudio.com/release/RowAlong-1.0.0-arm64.dmg
+https://rowalongcdn.endlessrainstudio.com/release/RowAlong-1.0.1-arm64.dmg
 ```
 
 To set up or move it:
 
-1. Upload `release/RowAlong-1.0.0-arm64.dmg` to the R2 bucket behind that host.
+1. Upload `release/RowAlong-<version>-arm64.dmg` to the R2 bucket behind that host.
 2. Make sure the object is publicly readable at the URL above.
 3. If the host or path changes, update every `DOWNLOAD-URL` href in `index.html`
    (search for `DOWNLOAD-URL`; there are three).
 
-To bump the version later, re-upload the new DMG and update the filename/version
-strings in `index.html` (`v1.0.0` appears in the meta line and footer).
+To bump the version: `npm version <new>` (bumps `package.json` **and**
+`package-lock.json`), `npm run pack` to build the DMG, upload it to R2, and only
+then update `index.html` — the three `DOWNLOAD-URL` hrefs plus the two version
+strings (the closing band's meta line and the footer).
+
+**Upload before you push.** This page redeploys on every push to `main`, so the
+moment the new hrefs land the buttons are live — pointing them at a DMG that
+isn't in the bucket yet breaks every download button on the site. Verify with
+`curl -I <url>` and expect a `200`.
 
 ## Assets
 
