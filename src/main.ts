@@ -2,6 +2,7 @@ import { Storage, Density } from './core/storage';
 import { SessionEngine } from './core/sessionEngine';
 import { TonePlayer } from './core/audio';
 import { Segment } from './core/types';
+import { createRecorder, SessionRecorder } from './core/sessionRecorder';
 import { mountSetup } from './ui/setupView';
 import { mountOverlay, MountedOverlay } from './ui/overlayView';
 import { isPipSupported } from './shell/overlayHost';
@@ -18,6 +19,8 @@ let host: PipOverlayHost | null = null;
 let tearingDown = false;
 let sessionActive = false;
 let currentSegments: Segment[] = [];
+let recorder: SessionRecorder | null = null;
+let currentEngine: SessionEngine | null = null;
 
 function wireAudio(engine: SessionEngine) {
   const prefs = storage.getPrefs();
@@ -26,7 +29,11 @@ function wireAudio(engine: SessionEngine) {
   engine.on((e) => {
     if (e.type === 'transition') tone.handleTransition(e.to.intensity);
     else if (e.type === 'countdown') tone.handleCountdown(e.next.intensity);
-    else if (e.type === 'complete') tone.playComplete();
+    else if (e.type === 'complete') {
+      tone.playComplete();
+      recorder?.finish(engine.getState().totalElapsedSec, true);
+      setup.refreshHistory();
+    }
   });
 }
 
@@ -90,13 +97,13 @@ function showReopen(engine: SessionEngine) {
   document.body.appendChild(bar);
 }
 
-async function startSession(segments: Segment[], _programName: string) {
+async function startSession(segments: Segment[], programName: string) {
   if (window.electronAPI) {
     // Electron: hand the session off to the native always-on-top overlay window,
     // which floats over native-app fullscreen (where PiP can't). The setup button
     // becomes "Stop workout" so a second Start can't be sent (it would race the
     // overlay window and crash the main process); main fires onSessionEnded to reset.
-    window.electronAPI.startSession({ segments, prefs: storage.getPrefs() });
+    window.electronAPI.startSession({ segments, prefs: storage.getPrefs(), name: programName });
     sessionActive = true;
     setup.setSessionActive(true);
     return;
@@ -109,6 +116,8 @@ async function startSession(segments: Segment[], _programName: string) {
   tearingDown = false;
   currentSegments = segments;
   const engine = new SessionEngine(segments);
+  currentEngine = engine;
+  recorder = createRecorder(storage, { segments, programName, startedAt: Date.now() });
   tone.unlock(); // user gesture (Start click)
   wireAudio(engine);
 
@@ -151,6 +160,11 @@ function endSession() {
   sessionActive = false;
   setup.setSessionActive(false);
   cancelAnimationFrame(rafId);
+  // No-op if the session already completed naturally — the recorder writes once.
+  if (currentEngine) recorder?.finish(currentEngine.getState().totalElapsedSec, false);
+  recorder = null;
+  currentEngine = null;
+  setup.refreshHistory();
   mounted?.unmount();
   mounted = null;
   host?.close();
@@ -168,4 +182,5 @@ const setup = mountSetup(app, { storage, onStart: startSession, onStop: stopSess
 window.electronAPI?.onSessionEnded(() => {
   sessionActive = false;
   setup.setSessionActive(false);
+  setup.refreshHistory();
 });

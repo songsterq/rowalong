@@ -5,6 +5,8 @@ import type { Prefs } from './core/storage';
 export interface SessionPayload {
   segments: Segment[];
   prefs: Prefs;
+  /** Provenance label for history, e.g. 'Quick 20' or '20 min · random'. */
+  name: string;
 }
 
 /** Bridge exposed by electron/preload.cjs via contextBridge. Present only under Electron. */

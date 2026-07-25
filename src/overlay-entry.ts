@@ -2,6 +2,7 @@ import { SessionEngine } from './core/sessionEngine';
 import { TonePlayer } from './core/audio';
 import { Storage } from './core/storage';
 import type { Density } from './core/storage';
+import { createRecorder } from './core/sessionRecorder';
 import { mountOverlay } from './ui/overlayView';
 import type { SessionPayload } from './electron';
 
@@ -16,6 +17,11 @@ function runSession(payload: SessionPayload) {
   const { segments, prefs } = payload;
 
   const engine = new SessionEngine(segments);
+  const recorder = createRecorder(storage, {
+    segments,
+    programName: payload.name,
+    startedAt: Date.now(),
+  });
   const tone = new TonePlayer();
   tone.setVolume(prefs.volume);
   tone.setMuted(prefs.muted);
@@ -24,7 +30,10 @@ function runSession(payload: SessionPayload) {
   engine.on((e) => {
     if (e.type === 'transition') tone.handleTransition(e.to.intensity);
     else if (e.type === 'countdown') tone.handleCountdown(e.next.intensity);
-    else if (e.type === 'complete') tone.playComplete();
+    else if (e.type === 'complete') {
+      tone.playComplete();
+      recorder.finish(engine.getState().totalElapsedSec, true);
+    }
   });
 
   let density: Density = prefs.density;
@@ -38,6 +47,7 @@ function runSession(payload: SessionPayload) {
     },
     onStop: () => {
       cancelAnimationFrame(rafId);
+      recorder.finish(engine.getState().totalElapsedSec, false);
       window.electronAPI?.stopSession();
     },
     onDrag: (dx, dy) => window.electronAPI?.moveOverlayBy(dx, dy),
