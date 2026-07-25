@@ -19,5 +19,9 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     environment: 'jsdom',
+    // Pin a DST-observing zone so local-date logic (src/core/history.ts) is
+    // deterministic and DST transitions are actually reachable in tests,
+    // instead of depending on whatever TZ the runner/CI happens to have.
+    env: { TZ: 'America/Los_Angeles' },
   },
 }));

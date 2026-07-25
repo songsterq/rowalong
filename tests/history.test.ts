@@ -4,6 +4,7 @@ import {
   heatmapDays,
   historyStats,
   STREAK_MIN_MINUTES,
+  DayCell,
 } from '../src/core/history';
 import { SessionRecord } from '../src/core/types';
 
@@ -99,6 +100,81 @@ describe('historyStats streak', () => {
   it('counts a day whose short sessions sum past the floor', () => {
     const recs = [rec(0, 3), rec(0, 3)];
     expect(historyStats(recs, TODAY).currentStreak).toBe(1);
+  });
+});
+
+describe('DST transitions', () => {
+  // Vitest runs pinned to America/Los_Angeles (see vite.config.ts `test.env.TZ`).
+  // 2026 spring-forward is Sun 2026-03-08 (2:00am -> 3:00am); fall-back is
+  // Sun 2026-11-01 (2:00am -> 1:00am). A day-stepping bug (e.g. adding a fixed
+  // 24h instead of using setDate) would drop or duplicate the transition day.
+
+  /** A record `daysAgo` before `base`, at local noon so DST shifts can't move
+   *  the calendar date the record lands on. */
+  function recBefore(base: Date, daysAgo: number, minutes: number): SessionRecord {
+    const d = new Date(base);
+    d.setDate(d.getDate() - daysAgo);
+    return {
+      id: `dst-${base.getTime()}-${daysAgo}-${minutes}`,
+      startedAt: d.getTime(),
+      elapsedSec: minutes * 60,
+      plannedSec: minutes * 60,
+      completed: true,
+      programName: 'Quick 20',
+      segments: [{ id: 's', intensity: 'easy', durationSec: minutes * 60 }],
+    };
+  }
+
+  function expectConsecutiveNoDupes(cells: DayCell[], expectedLength: number) {
+    expect(cells).toHaveLength(expectedLength);
+    expect(new Set(cells.map((c) => c.key)).size).toBe(expectedLength);
+    for (let i = 1; i < cells.length; i++) {
+      const prev = new Date(cells[i - 1].key + 'T12:00:00').getTime();
+      const cur = new Date(cells[i].key + 'T12:00:00').getTime();
+      expect(Math.round((cur - prev) / DAY_MS)).toBe(1);
+    }
+  }
+
+  describe('spring-forward (2026-03-08)', () => {
+    // Mon 2026-03-09; the prior week (weeks=2) covers Mon 03-02 .. Sun 03-08,
+    // so the window straddles the transition night of 03-07 -> 03-08.
+    const TODAY_SPRING = new Date(2026, 2, 9, 12, 0, 0).getTime();
+
+    it('heatmapDays still yields weeks * 7 consecutive, non-duplicated days', () => {
+      const cells = heatmapDays([], TODAY_SPRING, 2);
+      expectConsecutiveNoDupes(cells, 14);
+      expect(cells[0].key).toBe('2026-03-02');
+      expect(cells[cells.length - 1].key).toBe('2026-03-15');
+      expect(cells.some((c) => c.key === '2026-03-08')).toBe(true);
+    });
+
+    it('historyStats streak counts each day once across the transition', () => {
+      const base = new Date(2026, 2, 10, 12, 0, 0); // Tue, after the transition
+      const recs = [0, 1, 2, 3].map((daysAgo) => recBefore(base, daysAgo, 20));
+      // daysAgo 0..3 => Mar 10, 9, 8, 7 -> 4 consecutive active days.
+      expect(historyStats(recs, base.getTime()).currentStreak).toBe(4);
+    });
+  });
+
+  describe('fall-back (2026-11-01)', () => {
+    // Mon 2026-11-02; the prior week (weeks=2) covers Mon 10-26 .. Sun 11-01,
+    // so the window straddles the transition night of 11-01 -> 11-02.
+    const TODAY_FALL = new Date(2026, 10, 2, 12, 0, 0).getTime();
+
+    it('heatmapDays still yields weeks * 7 consecutive, non-duplicated days', () => {
+      const cells = heatmapDays([], TODAY_FALL, 2);
+      expectConsecutiveNoDupes(cells, 14);
+      expect(cells[0].key).toBe('2026-10-26');
+      expect(cells[cells.length - 1].key).toBe('2026-11-08');
+      expect(cells.some((c) => c.key === '2026-11-01')).toBe(true);
+    });
+
+    it('historyStats streak counts each day once across the transition', () => {
+      const base = new Date(2026, 10, 3, 12, 0, 0); // Tue, after the transition
+      const recs = [0, 1, 2, 3].map((daysAgo) => recBefore(base, daysAgo, 20));
+      // daysAgo 0..3 => Nov 3, 2, 1, Oct 31 -> 4 consecutive active days.
+      expect(historyStats(recs, base.getTime()).currentStreak).toBe(4);
+    });
   });
 });
 
