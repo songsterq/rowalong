@@ -63,53 +63,44 @@ export function renderEditor(
     if (!row) return;
     ev.preventDefault(); // avoid selecting page text while dragging
 
+    // Listeners live on `document`, not the handle: reordering moves `row`
+    // (the handle's ancestor) via insertBefore, and relocating a captured
+    // element mid-drag makes the browser drop pointer capture, silently
+    // ending the gesture. Document-level listeners keep receiving events
+    // regardless of where the dragged row ends up in the DOM.
     const initialOrder = Array.from(list.children).map((el) => (el as HTMLElement).dataset.id);
     row.classList.add('seg-row--dragging');
-    try {
-      handle.setPointerCapture(pe.pointerId);
-    } catch {
-      /* jsdom / no pointerId */
-    }
 
     const onMove = (mv: Event) => {
       const clientY = (mv as PointerEvent).clientY;
       const siblings = Array.from(list.querySelectorAll<HTMLElement>('.seg-row')).filter(
         (r) => r !== row,
       );
-      let closest: HTMLElement | null = null;
-      let closestDist = Infinity;
+      let target: HTMLElement | null = null;
       for (const sib of siblings) {
         const rect = sib.getBoundingClientRect();
-        const dist = Math.abs(clientY - (rect.top + rect.height / 2));
-        if (dist < closestDist) {
-          closestDist = dist;
-          closest = sib;
+        if (clientY < rect.top + rect.height / 2) {
+          target = sib;
+          break;
         }
       }
-      if (!closest) return;
-      const rect = closest.getBoundingClientRect();
-      const before = clientY < rect.top + rect.height / 2;
-      const target = before ? closest : closest.nextElementSibling;
-      if (target !== row) list.insertBefore(row, target);
+      // Only touch the DOM when the position actually changes: a call that
+      // fires on every pointermove (even no-ops) is what drops capture above.
+      if (target !== row.nextElementSibling) list.insertBefore(row, target);
     };
 
     const onUp = () => {
       row.classList.remove('seg-row--dragging');
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', onUp);
-      handle.removeEventListener('pointercancel', onUp);
-      try {
-        handle.releasePointerCapture(pe.pointerId);
-      } catch {
-        /* jsdom / no pointerId */
-      }
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
       const finalOrder = Array.from(list.children).map((el) => (el as HTMLElement).dataset.id);
       if (finalOrder.join() !== initialOrder.join()) fire();
     };
 
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
-    handle.addEventListener('pointercancel', onUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   });
 
   list.addEventListener('click', (ev) => {

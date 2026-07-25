@@ -144,9 +144,11 @@ export const SETUP_CSS = `
   .setup .seg-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
   .setup .seg-row { display: flex; align-items: center; gap: 12px; background: var(--inset);
     border: 1px solid var(--border-2); border-radius: 12px; padding: 9px 12px 9px 10px;
-    transition: border-color .15s, background .15s; }
+    transition: border-color .15s, background .15s, transform .12s ease, box-shadow .12s ease; }
   .setup .seg-row:hover { border-color: var(--border); background: oklch(0.2 0.006 70); }
-  .setup .seg-row--dragging { opacity: 0.55; border-color: var(--border); }
+  .setup .seg-row--dragging { position: relative; z-index: 5; transform: scale(1.025);
+    border-color: var(--border); background: oklch(0.24 0.006 70);
+    box-shadow: 0 12px 28px oklch(0 0 0 / 0.4), 0 0 0 1px var(--border); }
   .setup .seg-handle { color: var(--mute); cursor: grab; font-size: 15px; line-height: 1; letter-spacing: -1px;
     touch-action: none; }
   .setup .seg-handle:active { cursor: grabbing; }

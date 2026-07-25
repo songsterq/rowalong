@@ -143,5 +143,73 @@ describe('segment editor', () => {
       expect(calls).toBe(1);
       expect(readEditor(container).map((s) => s.id)).toEqual(['b', 'a']);
     });
+
+    it('moves a row down across multiple siblings within a single drag gesture', () => {
+      renderEditor(container, [
+        { id: 'a', intensity: 'hard', durationSec: 10 },
+        { id: 'b', intensity: 'easy', durationSec: 10 },
+        { id: 'c', intensity: 'medium', durationSec: 10 },
+        { id: 'd', intensity: 'allout', durationSec: 10 },
+        { id: 'e', intensity: 'easy', durationSec: 10 },
+      ]);
+      const rows = stubRowLayout(container);
+      const handle = rows[0].querySelector('.seg-handle')!;
+
+      handle.dispatchEvent(ptr('pointerdown', 10));
+      handle.dispatchEvent(ptr('pointermove', 50));
+      handle.dispatchEvent(ptr('pointermove', 90));
+      handle.dispatchEvent(ptr('pointermove', 130));
+      handle.dispatchEvent(ptr('pointermove', 190));
+      handle.dispatchEvent(ptr('pointerup', 190));
+
+      expect(readEditor(container).map((s) => s.id)).toEqual(['b', 'c', 'd', 'e', 'a']);
+    });
+
+    it('moves a row up across multiple siblings within a single drag gesture', () => {
+      renderEditor(container, [
+        { id: 'a', intensity: 'hard', durationSec: 10 },
+        { id: 'b', intensity: 'easy', durationSec: 10 },
+        { id: 'c', intensity: 'medium', durationSec: 10 },
+        { id: 'd', intensity: 'allout', durationSec: 10 },
+        { id: 'e', intensity: 'easy', durationSec: 10 },
+      ]);
+      const rows = stubRowLayout(container);
+      const handle = rows[4].querySelector('.seg-handle')!;
+
+      handle.dispatchEvent(ptr('pointerdown', 190));
+      handle.dispatchEvent(ptr('pointermove', 130));
+      handle.dispatchEvent(ptr('pointermove', 90));
+      handle.dispatchEvent(ptr('pointermove', 50));
+      handle.dispatchEvent(ptr('pointermove', 5));
+      handle.dispatchEvent(ptr('pointerup', 5));
+
+      expect(readEditor(container).map((s) => s.id)).toEqual(['e', 'a', 'b', 'c', 'd']);
+    });
+
+    it('does not touch the DOM before the pointer actually crosses a sibling boundary', () => {
+      // A real browser drops pointer capture when the dragged handle's ancestor
+      // is reparented mid-drag, ending the gesture early. A reorder call that
+      // fires on every pointermove (even ones that don't change the order) is
+      // exactly what triggers that — so the list must stay untouched until a
+      // move genuinely crosses into a new slot.
+      renderEditor(container, segs);
+      const rows = stubRowLayout(container);
+      const list = container.querySelector('.seg-list') as HTMLElement;
+      const handle = rows[0].querySelector('.seg-handle')!;
+      let insertCalls = 0;
+      const realInsertBefore = list.insertBefore.bind(list);
+      list.insertBefore = ((...args: Parameters<typeof list.insertBefore>) => {
+        insertCalls += 1;
+        return realInsertBefore(...args);
+      }) as typeof list.insertBefore;
+
+      handle.dispatchEvent(ptr('pointerdown', 10));
+      handle.dispatchEvent(ptr('pointermove', 15)); // a couple px down, well short of b's slot
+      handle.dispatchEvent(ptr('pointermove', 25));
+      handle.dispatchEvent(ptr('pointerup', 25));
+
+      expect(insertCalls).toBe(0);
+      expect(readEditor(container).map((s) => s.id)).toEqual(['a', 'b']);
+    });
   });
 });
