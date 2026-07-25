@@ -44,7 +44,6 @@ export function summarize(segments: Segment[]): WorkoutSummary {
 const ICON = {
   waves:
     '<svg viewBox="0 0 24 24"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>',
-  strength: '<svg viewBox="0 0 24 24"><path d="M4 9v6M7 7.5v9M17 7.5v9M20 9v6M7 12h10"/></svg>',
   generate: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg>',
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
@@ -83,11 +82,6 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
           <p>Rowing intervals that ride on top of whatever you're watching</p>
         </div>
       </header>
-
-      <nav class="tabs" role="tablist" aria-label="Workout type">
-        <div class="tab active" role="tab" aria-selected="true">${ICON.waves} Rowing</div>
-        <div class="tab" role="tab" aria-disabled="true">${ICON.strength} Strength <span class="soon">Soon</span></div>
-      </nav>
 
       <div class="grid">
         <div>

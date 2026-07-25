@@ -50,25 +50,6 @@ export const SETUP_CSS = `
     font-size: 19px; font-weight: 700; letter-spacing: 0.01em; }
   .setup .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--mute); letter-spacing: 0.02em; }
 
-  /* ---------- tabs ---------- */
-  .setup .tabs { display: inline-flex; gap: 4px; margin-bottom: 24px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 5px; }
-  .setup .tab { position: relative; display: flex; align-items: center; gap: 8px;
-    padding: 11px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 650;
-    color: var(--dim); border: 1px solid transparent; user-select: none;
-    transition: color .2s var(--ease), background .2s var(--ease); }
-  .setup .tab svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.7; fill: none;
-    stroke-linecap: round; stroke-linejoin: round; }
-  .setup .tab.active { color: var(--text);
-    background: linear-gradient(180deg, var(--surface-2), oklch(0.22 0.006 70));
-    border-color: var(--border);
-    box-shadow: 0 1px 0 oklch(1 0 0 / 0.06) inset, 0 8px 22px oklch(0 0 0 / 0.35); }
-  .setup .tab.active::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: -1px;
-    height: 2.5px; border-radius: 2px; background: var(--cta); }
-  .setup .tab[aria-disabled="true"] { color: var(--mute); cursor: not-allowed; }
-  .setup .tab .soon { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--mute); background: oklch(1 0 0 / 0.06); padding: 2px 6px; border-radius: 99px; }
-
   /* ---------- layout ---------- */
   .setup .grid { display: grid; grid-template-columns: 1.85fr 1fr; gap: 18px; align-items: start; }
   @media (max-width: 880px) { .setup .grid { grid-template-columns: 1fr; } }

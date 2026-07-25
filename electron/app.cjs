@@ -63,8 +63,12 @@ function writeSavedBounds(bounds) {
 
 function createSetupWindow() {
   setupWin = new BrowserWindow({
-    width: 760,
-    height: 820,
+    // Wide enough to clear the 880px breakpoint where `.grid` collapses to one
+    // column — below that the right rail (templates, history, prefs) drops under
+    // the builder instead of sitting beside it. 1048px is the page's own full
+    // width (1000px max-width + 24px padding each side); the rest is slack.
+    width: 1080,
+    height: 860,
     title: 'RowAlong',
     // Match the app's dark surface: hide the native title bar so the page's own
     // background fills that strip (traffic lights stay, floating over the content),
