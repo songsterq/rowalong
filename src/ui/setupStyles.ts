@@ -23,6 +23,17 @@ export const SETUP_CSS = `
     margin: 0 auto;
     padding: 40px 24px 124px;
     -webkit-font-smoothing: antialiased;
+    /* Chrome UI, not a document: dragging across a label shouldn't paint a
+       selection, and the caret shouldn't become an I-beam. The overlay already
+       does this on .ov-root in OVERLAY_CSS. Real text fields opt back in below. */
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+  .setup input[type="text"], .setup input[type="number"], .setup textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: auto;
   }
   body:has(> #app > .setup), body:has(> #app .setup) {
     margin: 0;

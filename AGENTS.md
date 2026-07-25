@@ -109,6 +109,11 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
 - **Two HTML entries** (`index.html`, `overlay.html`) are registered in
   `vite.config.ts` `rollupOptions.input`; the dev server is pinned to port 5173
   (`strictPort`) because `electron/app.cjs` hardcodes that URL.
+- **`SETUP_CSS` / `OVERLAY_CSS` are template literals**, so a backtick or a `${`
+  inside a CSS comment silently ends the string and turns the rest of the
+  stylesheet into code. The failure surfaces as a nonsense `tsc` error pointing
+  at a CSS token (e.g. `Cannot find name 'root'`) plus a chunk of the suite
+  failing to import — not as a style bug. Write CSS comments without backticks.
 - **Vitest is pinned to `TZ=America/Los_Angeles`** (`vite.config.ts`, `test.env`)
   for *all* test files, not just history ones — `history.ts`'s day bucketing
   (`dayKey`) is local-date based, so running under a UTC CI runner would silently
