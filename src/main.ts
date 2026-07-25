@@ -184,3 +184,11 @@ window.electronAPI?.onSessionEnded(() => {
   setup.setSessionActive(false);
   setup.refreshHistory();
 });
+
+// The Electron overlay window writes the record in its own renderer; the
+// `storage` event fires only in *other* documents of the origin, which is
+// exactly this one. Keeps the panel correct regardless of how the
+// session-ended IPC races the storage write.
+window.addEventListener('storage', (e) => {
+  if (e.key === 'wh.sessions') setup.refreshHistory();
+});

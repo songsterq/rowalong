@@ -77,7 +77,14 @@ export class Storage {
     const all = [...this.listSessions(), r]
       .sort((a, b) => a.startedAt - b.startedAt)
       .slice(-MAX_SESSIONS);
-    this.backend.setItem(SESSIONS_KEY, JSON.stringify(all));
+    try {
+      this.backend.setItem(SESSIONS_KEY, JSON.stringify(all));
+    } catch {
+      // A full origin quota (QuotaExceededError) or Safari private mode can throw
+      // here. This call sits inside session teardown (see sessionRecorder.finish),
+      // so an uncaught throw would abort the rest of teardown — losing one history
+      // record is acceptable; wedging the overlay/PiP window shut is not.
+    }
   }
 
   getPrefs(): Prefs {

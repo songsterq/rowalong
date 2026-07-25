@@ -146,7 +146,17 @@ Call sites:
 | Host | Natural completion | Early stop |
 | --- | --- | --- |
 | Browser (`main.ts`) | engine `complete` event | `endSession()` |
-| Electron (`overlay-entry.ts`) | engine `complete` event | overlay `onStop` |
+| Electron (`overlay-entry.ts`) | engine `complete` event | overlay `onStop`, **and** a `pagehide` listener on the overlay window |
+
+The overlay's own `onStop` handler fires only when the user stops from the
+overlay panel itself. The setup window's Stop button, Cmd-W on the overlay
+panel, and app quit all close the overlay `BrowserWindow` without going
+through `onStop` or the engine's `complete` event — the renderer is simply
+torn down. `overlay-entry.ts` therefore also finishes the recording from a
+`pagehide` listener registered right after `recorder`/`engine` are
+constructed, covering every teardown path uniformly instead of enumerating
+them one IPC message at a time. The recorder's write-once guard (§ above)
+is what makes this safe to run alongside `onStop` and `complete`.
 
 ### 6.1 Electron payload
 

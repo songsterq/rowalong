@@ -124,4 +124,18 @@ describe('Storage sessions', () => {
     mem.setItem('wh.sessions', '{"nope":true}');
     expect(new Storage(mem).listSessions()).toEqual([]);
   });
+
+  it('does not throw when the backend fails to write (e.g. quota exceeded)', () => {
+    class ThrowingSetItem implements KeyValueStore {
+      getItem() {
+        return null;
+      }
+      setItem(): void {
+        throw new Error('QuotaExceededError');
+      }
+      removeItem() {}
+    }
+    const store = new Storage(new ThrowingSetItem());
+    expect(() => store.recordSession(sess('a', 1000))).not.toThrow();
+  });
 });

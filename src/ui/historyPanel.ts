@@ -40,9 +40,9 @@ export function renderHistory(
   const grid = cells
     .map((c) => {
       const label = c.future ? c.key : `${c.key} · ${c.minutes} min`;
-      return `<span class="hist-cell" data-key="${c.key}" data-level="${
+      return `<span class="hist-cell" data-key="${escapeHtml(c.key)}" data-level="${
         c.future ? 0 : levelFor(c.minutes)
-      }" data-future="${c.future}" title="${label}"></span>`;
+      }" data-future="${c.future}" title="${escapeHtml(label)}"></span>`;
     })
     .join('');
 
@@ -50,10 +50,10 @@ export function renderHistory(
   const list = recent.length
     ? recent
         .map(
-          (r) => `<button class="hist-item" type="button" data-id="${r.id}">
-             <span class="hist-when">${weekdayLabel(r.startedAt)}</span>
+          (r) => `<button class="hist-item" type="button" data-id="${escapeHtml(r.id)}">
+             <span class="hist-when">${escapeHtml(weekdayLabel(r.startedAt))}</span>
              <span class="hist-name">${escapeHtml(r.programName)}</span>
-             <span class="hist-dur">${formatClock(r.elapsedSec)}</span>
+             <span class="hist-dur">${escapeHtml(formatClock(r.elapsedSec))}</span>
            </button>`,
         )
         .join('')

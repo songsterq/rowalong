@@ -46,10 +46,16 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
     (defaults to `localStorage`).
   - `audio.ts` — pure tone-decision fns + `TonePlayer` (Web Audio, no assets).
   - `starters.ts` — built-in templates.
+  - `history.ts` — local-date bucketing (`dayKey`), heatmap cells, and streak /
+    weekly / all-time stats over `SessionRecord[]`.
+  - `sessionRecorder.ts` — `createRecorder(storage, ctx)`: write-once
+    `finish(elapsedSec, completed)` that turns a run into a `SessionRecord`.
 - `src/ui/` — DOM:
   - `overlayView.ts` — the floating widget; **injects its own CSS** so it works in
     any host document; pill/coach density toggle; click-to-pause; controls.
   - `segmentEditor.ts`, `setupView.ts` — the setup page.
+  - `historyPanel.ts` — `renderHistory`: streak/week/total stat tiles, the
+    13-week heatmap, and the last-3-sessions list with `onPick` to reload one.
 - `src/shell/` — `overlayHost.ts` (`OverlayHost` interface + `isPipSupported`),
   `pipOverlayHost.ts` (browser Document Picture-in-Picture).
 - `src/main.ts` — setup-page entry. On Start: if `window.electronAPI` → hand off to
@@ -103,6 +109,18 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
 - **Two HTML entries** (`index.html`, `overlay.html`) are registered in
   `vite.config.ts` `rollupOptions.input`; the dev server is pinned to port 5173
   (`strictPort`) because `electron/app.cjs` hardcodes that URL.
+- **Vitest is pinned to `TZ=America/Los_Angeles`** (`vite.config.ts`, `test.env`)
+  for *all* test files, not just history ones — `history.ts`'s day bucketing
+  (`dayKey`) is local-date based, so running under a UTC CI runner would silently
+  pass while breaking for anyone west of UTC.
+- **The Electron overlay window owns the session record.** It calls
+  `sessionRecorder.finish()`, not the setup window, so the setup window's history
+  panel depends on cross-renderer `localStorage` propagation (the `storage`
+  event) rather than reading its own write. Because the overlay renderer can be
+  torn down without warning — the setup window's Stop button, Cmd-W, or app quit
+  all close it without going through the engine's `complete` event or the
+  overlay's own stop handler — `overlay-entry.ts` also records on the window's
+  `pagehide` event, guarded by the recorder's write-once `finish()`.
 
 ## Reference
 

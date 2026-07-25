@@ -27,6 +27,16 @@ function runSession(payload: SessionPayload) {
   tone.setMuted(prefs.muted);
   tone.unlock(); // autoplay is enabled in this window via the main process switch
 
+  // The overlay window can be closed out from under us — the setup window's Stop
+  // button, Cmd-W, or app quit all destroy this renderer without reaching the
+  // handlers above. Record on teardown so no workout is silently lost; the
+  // recorder's write-once guard makes this safe alongside the paths that do fire.
+  window.addEventListener('pagehide', () => {
+    if (engine.getState().status !== 'idle') {
+      recorder.finish(engine.getState().totalElapsedSec, false);
+    }
+  });
+
   engine.on((e) => {
     if (e.type === 'transition') tone.handleTransition(e.to.intensity);
     else if (e.type === 'countdown') tone.handleCountdown(e.next.intensity);

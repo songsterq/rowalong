@@ -78,4 +78,22 @@ describe('history panel', () => {
     container.querySelectorAll<HTMLButtonElement>('.hist-item')[1].click();
     expect(picked).toEqual([['seg1', 'B']]);
   });
+
+  it('escapes a hostile program name instead of injecting markup', () => {
+    const hostile = rec(0, 20, '<img src=x onerror=alert(1)>');
+    renderHistory(container, [hostile], { now: TODAY });
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.hist-name')!.textContent).toBe(
+      '<img src=x onerror=alert(1)>',
+    );
+  });
+
+  it('escapes a hostile session id instead of breaking out of the data-id attribute', () => {
+    const hostile = rec(0, 20, 'A');
+    hostile.id = 'x" onmouseover="alert(1)';
+    renderHistory(container, [hostile], { now: TODAY });
+    const btn = container.querySelector<HTMLButtonElement>('.hist-item')!;
+    expect(btn.getAttribute('onmouseover')).toBeNull();
+    expect(btn.dataset.id).toBe('x" onmouseover="alert(1)');
+  });
 });
