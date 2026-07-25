@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Storage, DEFAULT_PREFS, type KeyValueStore } from '../src/core/storage';
-import { Template } from '../src/core/types';
+import { Storage, DEFAULT_PREFS, type KeyValueStore, MAX_SESSIONS } from '../src/core/storage';
+import { Template, SessionRecord } from '../src/core/types';
 
 class Mem implements KeyValueStore {
   m = new Map<string, string>();
@@ -71,5 +71,57 @@ describe('Storage prefs', () => {
 
   it('defaults the push strategy to random', () => {
     expect(DEFAULT_PREFS.lastPushStyle).toBe('random');
+  });
+});
+
+function sess(id: string, startedAt: number): SessionRecord {
+  return {
+    id,
+    startedAt,
+    elapsedSec: 600,
+    plannedSec: 1200,
+    completed: false,
+    programName: '20 min · random',
+    segments: [{ id: 'a', intensity: 'easy', durationSec: 60 }],
+  };
+}
+
+describe('Storage sessions', () => {
+  it('starts empty', () => {
+    expect(store.listSessions()).toEqual([]);
+  });
+
+  it('round-trips a record', () => {
+    store.recordSession(sess('a', 1000));
+    const all = store.listSessions();
+    expect(all).toHaveLength(1);
+    expect(all[0].programName).toBe('20 min · random');
+    expect(all[0].segments).toHaveLength(1);
+  });
+
+  it('appends across calls, oldest first', () => {
+    store.recordSession(sess('a', 2000));
+    store.recordSession(sess('b', 1000));
+    expect(store.listSessions().map((r) => r.id)).toEqual(['b', 'a']);
+  });
+
+  it('keeps only the newest MAX_SESSIONS records', () => {
+    for (let i = 0; i < MAX_SESSIONS + 5; i++) store.recordSession(sess(`s${i}`, i * 1000));
+    const all = store.listSessions();
+    expect(all).toHaveLength(MAX_SESSIONS);
+    expect(all[0].id).toBe('s5');
+    expect(all[all.length - 1].id).toBe(`s${MAX_SESSIONS + 4}`);
+  });
+
+  it('falls back to empty on a corrupt payload', () => {
+    const mem = new Mem();
+    mem.setItem('wh.sessions', '{ not json');
+    expect(new Storage(mem).listSessions()).toEqual([]);
+  });
+
+  it('falls back to empty when the payload is not an array', () => {
+    const mem = new Mem();
+    mem.setItem('wh.sessions', '{"nope":true}');
+    expect(new Storage(mem).listSessions()).toEqual([]);
   });
 });

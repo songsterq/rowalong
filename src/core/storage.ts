@@ -1,4 +1,4 @@
-import { Template } from './types';
+import { SessionRecord, Template } from './types';
 import { PushStyle } from './pushStyles';
 
 export type Density = 'pill' | 'coach';
@@ -27,6 +27,11 @@ export interface KeyValueStore {
 
 const TEMPLATES_KEY = 'wh.templates';
 const PREFS_KEY = 'wh.prefs';
+const SESSIONS_KEY = 'wh.sessions';
+
+/** Cap on stored history. At roughly a session a day this is over a year, and it
+ *  stops localStorage growing without bound. */
+export const MAX_SESSIONS = 500;
 
 export class Storage {
   constructor(private readonly backend: KeyValueStore = localStorage) {}
@@ -55,6 +60,24 @@ export class Storage {
   deleteTemplate(id: string): void {
     const all = this.listTemplates().filter((t) => t.id !== id);
     this.backend.setItem(TEMPLATES_KEY, JSON.stringify(all));
+  }
+
+  listSessions(): SessionRecord[] {
+    const raw = this.backend.getItem(SESSIONS_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as SessionRecord[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  recordSession(r: SessionRecord): void {
+    const all = [...this.listSessions(), r]
+      .sort((a, b) => a.startedAt - b.startedAt)
+      .slice(-MAX_SESSIONS);
+    this.backend.setItem(SESSIONS_KEY, JSON.stringify(all));
   }
 
   getPrefs(): Prefs {
