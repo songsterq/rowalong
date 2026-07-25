@@ -23,6 +23,17 @@ export const SETUP_CSS = `
     margin: 0 auto;
     padding: 40px 24px 124px;
     -webkit-font-smoothing: antialiased;
+    /* Chrome UI, not a document: dragging across a label shouldn't paint a
+       selection, and the caret shouldn't become an I-beam. The overlay already
+       does this on .ov-root in OVERLAY_CSS. Real text fields opt back in below. */
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+  .setup input[type="text"], .setup input[type="number"], .setup textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: auto;
   }
   body:has(> #app > .setup), body:has(> #app .setup) {
     margin: 0;
@@ -49,25 +60,6 @@ export const SETUP_CSS = `
   .setup h1 { margin: 0; font-family: "Saira", -apple-system, system-ui, sans-serif;
     font-size: 19px; font-weight: 700; letter-spacing: 0.01em; }
   .setup .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--mute); letter-spacing: 0.02em; }
-
-  /* ---------- tabs ---------- */
-  .setup .tabs { display: inline-flex; gap: 4px; margin-bottom: 24px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 5px; }
-  .setup .tab { position: relative; display: flex; align-items: center; gap: 8px;
-    padding: 11px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 650;
-    color: var(--dim); border: 1px solid transparent; user-select: none;
-    transition: color .2s var(--ease), background .2s var(--ease); }
-  .setup .tab svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.7; fill: none;
-    stroke-linecap: round; stroke-linejoin: round; }
-  .setup .tab.active { color: var(--text);
-    background: linear-gradient(180deg, var(--surface-2), oklch(0.22 0.006 70));
-    border-color: var(--border);
-    box-shadow: 0 1px 0 oklch(1 0 0 / 0.06) inset, 0 8px 22px oklch(0 0 0 / 0.35); }
-  .setup .tab.active::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: -1px;
-    height: 2.5px; border-radius: 2px; background: var(--cta); }
-  .setup .tab[aria-disabled="true"] { color: var(--mute); cursor: not-allowed; }
-  .setup .tab .soon { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--mute); background: oklch(1 0 0 / 0.06); padding: 2px 6px; border-radius: 99px; }
 
   /* ---------- layout ---------- */
   .setup .grid { display: grid; grid-template-columns: 1.85fr 1fr; gap: 18px; align-items: start; }
@@ -250,4 +242,29 @@ export const SETUP_CSS = `
   .setup-startbar[data-empty="true"] .setup-start:not(.is-active) { opacity: 0.4; pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) { .setup *, .setup-startbar * { transition: none !important; } }
+
+  /* ---------- history ---------- */
+  .setup .hist-stats { display: flex; gap: 16px; margin-bottom: 14px; }
+  .setup .hist-stat b { display: block; font-size: 18px; font-weight: 700;
+    font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .setup .hist-stat span { font-size: 10.5px; color: var(--mute); }
+  .setup .hist-grid { display: grid; grid-auto-flow: column;
+    grid-template-rows: repeat(7, 9px); grid-auto-columns: 9px; gap: 2px; }
+  .setup .hist-cell { border-radius: 2px; background: var(--border-2); }
+  .setup .hist-cell[data-future="true"] { background: transparent; }
+  .setup .hist-cell[data-level="1"] { background: color-mix(in oklab, #ff8c42 28%, transparent); }
+  .setup .hist-cell[data-level="2"] { background: color-mix(in oklab, #ff8c42 50%, transparent); }
+  .setup .hist-cell[data-level="3"] { background: color-mix(in oklab, #ff8c42 74%, transparent); }
+  .setup .hist-cell[data-level="4"] { background: #ff8c42; }
+  .setup .hist-recent { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .setup .hist-item { display: flex; align-items: baseline; gap: 9px; width: 100%;
+    text-align: left; background: var(--inset); border: 1px solid var(--border-2);
+    border-radius: 9px; padding: 7px 10px; color: var(--text); font: inherit;
+    font-size: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .setup .hist-item:hover { border-color: var(--border); background: oklch(0.2 0.006 70); }
+  .setup .hist-when { color: var(--mute); font-size: 11px; min-width: 26px; }
+  .setup .hist-name { flex: 1; font-weight: 650; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .setup .hist-dur { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .setup .hist-empty { margin: 0; font-size: 12px; line-height: 1.5; color: var(--mute); }
 `;

@@ -6,13 +6,14 @@ import { starterTemplates } from '../core/starters';
 import { renderEditor, readEditor } from './segmentEditor';
 import { formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
+import { renderHistory } from './historyPanel';
 
 const titleCase = (s: string) => s[0].toUpperCase() + s.slice(1);
 const INTENSITY_ORDER: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
 
 export interface SetupOpts {
   storage: Storage;
-  onStart: (segments: Segment[]) => void;
+  onStart: (segments: Segment[], programName: string) => void;
   /** Called when the start button is clicked while a session is active. */
   onStop?: () => void;
 }
@@ -21,6 +22,8 @@ export interface SetupOpts {
 export interface MountedSetup {
   /** Flip the start button between "Start workout" and "Stop workout". */
   setSessionActive(active: boolean): void;
+  /** Re-read history from storage and repaint the panel (call after a session ends). */
+  refreshHistory(): void;
 }
 
 export interface WorkoutSummary {
@@ -41,7 +44,6 @@ export function summarize(segments: Segment[]): WorkoutSummary {
 const ICON = {
   waves:
     '<svg viewBox="0 0 24 24"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>',
-  strength: '<svg viewBox="0 0 24 24"><path d="M4 9v6M7 7.5v9M17 7.5v9M20 9v6M7 12h10"/></svg>',
   generate: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg>',
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
@@ -80,11 +82,6 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
           <p>Rowing intervals that ride on top of whatever you're watching</p>
         </div>
       </header>
-
-      <nav class="tabs" role="tablist" aria-label="Workout type">
-        <div class="tab active" role="tab" aria-selected="true">${ICON.waves} Rowing</div>
-        <div class="tab" role="tab" aria-disabled="true">${ICON.strength} Strength <span class="soon">Soon</span></div>
-      </nav>
 
       <div class="grid">
         <div>
@@ -148,6 +145,11 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
           </section>
 
           <section class="panel">
+            <div class="panel-head"><h2>History</h2></div>
+            <div class="setup-history"></div>
+          </section>
+
+          <section class="panel">
             <div class="panel-head"><h2>Preferences</h2></div>
             <div class="pref">
               <div class="pref-row">
@@ -204,6 +206,10 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   const startbar = container.querySelector('.setup-startbar') as HTMLElement;
   const summaryTotal = container.querySelector('.setup-summary-total') as HTMLElement;
   const summarySub = container.querySelector('.setup-summary-sub') as HTMLElement;
+  const historyEl = container.querySelector('.setup-history') as HTMLElement;
+  // Provenance label for the workout currently in the editor: where it came from,
+  // not what it now contains, so it survives manual block edits.
+  let programName = '';
   let seed = 0;
 
   const refreshSummary = () => {
@@ -219,7 +225,8 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     startbar.dataset.empty = String(s.blocks === 0);
   };
 
-  const renderWorkout = (segments: Segment[]) => {
+  const renderWorkout = (segments: Segment[], name: string) => {
+    programName = name;
     renderEditor(editor, segments, { onChange: refreshSummary });
     refreshSummary();
   };
@@ -230,7 +237,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     const mins = snapMinutes(Number(minutesEl.value) || 20);
     const style = strategyEl.value as PushStyle;
     opts.storage.setPrefs({ lastTotalMin: mins, lastPushStyle: style });
-    renderWorkout(generate(mins, { pushStyle: style }, seed));
+    renderWorkout(generate(mins, { pushStyle: style }, seed), `${mins} min · ${style}`);
   };
 
   const renderTemplates = () => {
@@ -255,7 +262,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     list.querySelectorAll<HTMLButtonElement>('.setup-load').forEach((b) =>
       b.addEventListener('click', () => {
         const t = templates.find((x) => x.id === b.dataset.id);
-        if (t) renderWorkout(t.segments.map((s) => ({ ...s, id: makeId() })));
+        if (t) renderWorkout(t.segments.map((s) => ({ ...s, id: makeId() })), t.name);
       }),
     );
     list.querySelectorAll<HTMLButtonElement>('.setup-del').forEach((b) =>
@@ -264,6 +271,16 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
         renderTemplates();
       }),
     );
+  };
+
+  const renderHistoryPanel = () => {
+    renderHistory(historyEl, opts.storage.listSessions(), {
+      onPick: (segments, name) =>
+        renderWorkout(
+          segments.map((s) => ({ ...s, id: makeId() })),
+          name,
+        ),
+    });
   };
 
   // Any config change rolls a fresh workout; manual block edits persist until then.
@@ -317,12 +334,16 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     }
     const segments = readEditor(editor);
     if (segments.length === 0) return;
-    opts.onStart(segments);
+    opts.onStart(segments, programName);
   });
 
   renderTemplates();
+  renderHistoryPanel();
   // Start with a ready-to-run workout so the page is never an empty form.
-  renderWorkout(generate(initialMin, { pushStyle: initialStyle }, seed));
+  renderWorkout(
+    generate(initialMin, { pushStyle: initialStyle }, seed),
+    `${initialMin} min · ${initialStyle}`,
+  );
 
-  return { setSessionActive };
+  return { setSessionActive, refreshHistory: renderHistoryPanel };
 }
