@@ -211,10 +211,12 @@ export function mountOverlay(
   syncDensityBtn(opts.density);
 
   // The stroke bar is a CSS animation, so writing --stroke-period alone would keep
-  // the animation's elapsed time and drop it at an arbitrary phase — with segment
-  // durations always a multiple of 5s, usually right back at the catch. Re-anchor
+  // the animation's elapsed time and drop it at an arbitrary phase. Re-anchor
   // instead: a rate change mid-stroke keeps the rower's place in the cycle. Fires
   // on any period change, so manual skips get the same handoff as a transition.
+  // --stroke-period must only ever be written here: strokePeriod below is a shadow
+  // copy of what's in the DOM, and the guard compares against that shadow copy —
+  // a second writer would desync the two and silently skip a needed re-anchor.
   const strokeSelectors = ['.ov-stroke-fill', '.ov-cap-drive', '.ov-cap-recover'];
   const animationsOf = (sel: string): Animation[] => $(sel).getAnimations?.() ?? [];
   let strokePeriod = 0; // the rounded seconds last written to --stroke-period

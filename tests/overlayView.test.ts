@@ -469,7 +469,7 @@ describe('stroke phase continuity across segments', () => {
     const engine = tickingEngine(runningState);
     mountOverlay(document, engine as never, { density: 'coach' });
 
-    for (const anim of anims.values()) anim.currentTime = 777;
+    for (const anim of anims.values()) anim.currentTime = 5000;
     // a different segment, same intensity → same period → nothing to re-anchor
     engine.tickTo({
       ...runningState,
@@ -478,7 +478,7 @@ describe('stroke phase continuity across segments', () => {
     });
 
     for (const sel of STROKE_SELECTORS) {
-      expect(anims.get(sel)!.currentTime).toBe(777);
+      expect(anims.get(sel)!.currentTime).toBe(5000);
     }
   });
 

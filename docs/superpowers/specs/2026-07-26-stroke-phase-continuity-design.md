@@ -1,14 +1,14 @@
 # Stroke Phase Continuity Across Segments — Design
 
 **Date:** 2026-07-26
-**Status:** Approved (pending spec review)
+**Status:** Approved
 **Area:** Overlay UI (`src/ui/overlayView.ts`)
 
 ## Summary
 
 When a workout crosses a segment boundary and the recommended stroke rate
 changes, the stroke pace bar currently jumps to an arbitrary point in the
-drive–recovery cycle — in practice, usually back to the catch. It should instead
+drive–recovery cycle — the resulting phase is arbitrary. It should instead
 **keep its place in the cycle and only change rate**: halfway through the drive
 at 24 spm becomes halfway through the drive at 30 spm, and the rower rows the
 second half of that drive at the new pace.
@@ -31,12 +31,17 @@ Changing `animation-duration` on a running CSS animation preserves the
 animation's **elapsed local time**, not its phase. The phase after the change is
 therefore `(elapsed / newPeriod) mod 1` — effectively arbitrary.
 
-It reads as a reset to the catch because of the arithmetic. Segment durations
-are always multiples of 5 seconds (`generator.ts` works in 5-second units), so
-elapsed time at a boundary is a multiple of 5. Easy is exactly `60 / 24 = 2.5s`,
-and any multiple of 5 divided by 2.5 is a whole number of cycles → phase 0.
-All-out (`2.00s`) lands on phase 0 or 0.5. So the jump is arithmetic, not a
-deliberate reset.
+The 5-second-multiple arithmetic (`generator.ts` works in 5-second units, so
+elapsed time at a boundary is always a multiple of 5) can explain a landing on
+the catch, but only under two conditions that do not generally hold. First, it
+requires the *incoming* period to be `2.5s` (easy, `60/24`) or `2.00s`
+(all-out, `60/30`) — any multiple of 5 divided by 2.5 is a whole number of
+cycles (phase 0), and divided by 2.00 lands on phase 0 or 0.5; medium
+(`2.31s`, `60/26`) and hard (`2.14s`, `60/28`) land nowhere special. Second, it
+assumes the animation's local time equals the workout's elapsed time, which it
+does not: the animation starts at `mountOverlay`, and `engine.start()` runs
+after it, so the two clocks are offset. So in general the jump lands at an
+arbitrary phase, not reliably at the catch.
 
 ## Decisions (resolved during brainstorming)
 
