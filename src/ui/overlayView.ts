@@ -210,6 +210,36 @@ export function mountOverlay(
   };
   syncDensityBtn(opts.density);
 
+  // The stroke bar is a CSS animation, so writing --stroke-period alone would keep
+  // the animation's elapsed time and drop it at an arbitrary phase — with segment
+  // durations always a multiple of 5s, usually right back at the catch. Re-anchor
+  // instead: a rate change mid-stroke keeps the rower's place in the cycle. Fires
+  // on any period change, so manual skips get the same handoff as a transition.
+  const strokeSelectors = ['.ov-stroke-fill', '.ov-cap-drive', '.ov-cap-recover'];
+  const animationsOf = (sel: string): Animation[] => $(sel).getAnimations?.() ?? [];
+  let strokePeriod = 0; // the rounded seconds last written to --stroke-period
+
+  const setStrokePeriod = (next: number) => {
+    if (next === strokePeriod) return; // the common case on every tick
+    // Read the phase before the write, while the old period still applies.
+    let currentMs: number | null = null;
+    for (const anim of animationsOf('.ov-stroke-fill')) {
+      if (typeof anim.currentTime === 'number') {
+        currentMs = anim.currentTime;
+        break;
+      }
+    }
+    const prev = strokePeriod;
+    strokePeriod = next;
+    root.style.setProperty('--stroke-period', `${next.toFixed(2)}s`);
+    if (currentMs === null) return; // reduced motion, or a host without getAnimations
+    // One phase for all three, so the bar and its DRIVE/RECOVER caption stay locked.
+    const at = retimedStrokeMs(currentMs, prev, next);
+    for (const sel of strokeSelectors) {
+      for (const anim of animationsOf(sel)) anim.currentTime = at;
+    }
+  };
+
   const apply = (state: SessionState) => {
     root.dataset.status = state.status;
     const paused = state.status === 'paused';
@@ -232,8 +262,9 @@ export function mountOverlay(
     const bar = $('.ov-bar > span') as HTMLElement;
     bar.style.width = `${Math.min(100, pct)}%`;
     bar.style.background = meta.color;
-    // Stroke bar: pace to this segment's spm and tint to its color.
-    root.style.setProperty('--stroke-period', `${strokePeriodSec(seg.intensity).toFixed(2)}s`);
+    // Stroke bar: pace to this segment's spm and tint to its color. Round before
+    // handing it over, so the phase math uses exactly the period the CSS runs at.
+    setStrokePeriod(Number(strokePeriodSec(seg.intensity).toFixed(2)));
     root.style.setProperty('--stroke-color', meta.color);
     $('.ov-remain').textContent = `${formatCountdown(state.totalRemainingSec)} left`;
     $('.ov-next').textContent = `Block ${state.currentIndex + 1}/${state.totalSegments}`;

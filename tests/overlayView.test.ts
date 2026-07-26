@@ -398,3 +398,97 @@ describe('stroke pace bar', () => {
     expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
   });
 });
+
+describe('stroke phase continuity across segments', () => {
+  type FakeAnim = { currentTime: number | null };
+
+  const STROKE_SELECTORS = ['.ov-stroke-fill', '.ov-cap-drive', '.ov-cap-recover'];
+
+  // jsdom has no Web Animations API, so stand one up: every stroke element
+  // reports a single fake animation whose currentTime the overlay can seek.
+  function stubAnimations(): Map<string, FakeAnim> {
+    const anims = new Map<string, FakeAnim>(
+      STROKE_SELECTORS.map((sel) => [sel, { currentTime: 0 }]),
+    );
+    Element.prototype.getAnimations = function (this: Element) {
+      for (const [sel, anim] of anims) {
+        if (this.matches(sel)) return [anim as unknown as Animation];
+      }
+      return [];
+    };
+    return anims;
+  }
+
+  // The shared fakeEngine swallows listeners; this one can drive a tick.
+  function tickingEngine(initial: SessionState) {
+    let state = initial;
+    const listeners: Array<(e: { type: string; state: SessionState }) => void> = [];
+    return {
+      on(fn: (e: { type: string; state: SessionState }) => void) {
+        listeners.push(fn);
+        return () => {};
+      },
+      getState: () => state,
+      tickTo(next: SessionState) {
+        state = next;
+        for (const fn of listeners) fn({ type: 'tick', state: next });
+      },
+      pause: () => {}, resume: () => {}, skipNext: () => {}, skipPrev: () => {}, stop: () => {},
+    };
+  }
+
+  const alloutState: SessionState = {
+    ...runningState,
+    currentIndex: 2,
+    segment: { id: 'y', intensity: 'allout', durationSec: 60 },
+  };
+
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+  afterEach(() => { delete (Element.prototype as Partial<Element>).getAnimations; });
+
+  it('carries the stroke phase across a rate change instead of restarting it', () => {
+    const anims = stubAnimations();
+    const engine = tickingEngine(runningState); // hard → 2.14s
+    mountOverlay(document, engine as never, { density: 'coach' });
+
+    // Halfway through the cycle at 2.14s — i.e. deep in the recovery.
+    for (const anim of anims.values()) anim.currentTime = 1070;
+
+    engine.tickTo(alloutState); // all-out → 2.00s
+
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
+    // still halfway through the cycle, now at the faster rate
+    for (const sel of STROKE_SELECTORS) {
+      expect(anims.get(sel)!.currentTime).toBeCloseTo(1000, 6);
+    }
+  });
+
+  it('leaves the running animations alone when the rate is unchanged', () => {
+    const anims = stubAnimations();
+    const engine = tickingEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+
+    for (const anim of anims.values()) anim.currentTime = 777;
+    // a different segment, same intensity → same period → nothing to re-anchor
+    engine.tickTo({
+      ...runningState,
+      currentIndex: 3,
+      segment: { id: 'z', intensity: 'hard', durationSec: 60 },
+    });
+
+    for (const sel of STROKE_SELECTORS) {
+      expect(anims.get(sel)!.currentTime).toBe(777);
+    }
+  });
+
+  it('still paces the bar in a host with no Web Animations API', () => {
+    // no stubAnimations() here: this is plain jsdom, and reduced motion
+    // (animation: none) looks the same to the overlay.
+    const engine = tickingEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    expect(() => engine.tickTo(alloutState)).not.toThrow();
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
+  });
+});
