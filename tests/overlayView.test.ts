@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec } from '../src/ui/overlayView';
+import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec, retimedStrokeMs } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
 import { INTENSITY_META, type Segment } from '../src/core/types';
 
@@ -26,6 +26,47 @@ describe('strokePeriodSec', () => {
     expect(strokePeriodSec('medium')).toBeCloseTo(2.307692, 5); // 60/26
     expect(strokePeriodSec('hard')).toBeCloseTo(2.142857, 5); // 60/28
     expect(strokePeriodSec('allout')).toBe(2);      // 60/30
+  });
+});
+
+describe('retimedStrokeMs', () => {
+  // The stroke cycle is drive 0→33%, recovery 33→100%, at any rate.
+  it('keeps the same point in the cycle when the rate changes', () => {
+    // half a stroke in at 24 spm (2.5s) → half a stroke in at 30 spm (2.0s)
+    expect(retimedStrokeMs(1250, 2.5, 2)).toBe(1000);
+  });
+
+  it('keeps a mid-drive position mid-drive', () => {
+    // 0.165 of the cycle = halfway through the 0→33% drive
+    expect(retimedStrokeMs(0.165 * 2500, 2.5, 2)).toBeCloseTo(0.165 * 2000, 6);
+  });
+
+  it('lands exactly on the drive/recovery boundary', () => {
+    expect(retimedStrokeMs(0.33 * 2500, 2.5, 2)).toBeCloseTo(0.33 * 2000, 6);
+  });
+
+  it('keeps the catch at the catch', () => {
+    expect(retimedStrokeMs(0, 2.5, 2)).toBe(0);
+  });
+
+  it('reduces a local time that has run for many iterations', () => {
+    // 40.5 cycles of 2.5s: the half-cycle is what carries over, not the 40
+    expect(retimedStrokeMs(101250, 2.5, 2)).toBe(1000);
+  });
+
+  it('is the identity when the period does not change', () => {
+    expect(retimedStrokeMs(1234, 2.5, 2.5)).toBeCloseTo(1234, 6);
+  });
+
+  it('normalises a negative local time into the cycle', () => {
+    // -0.2 of a cycle is 0.8 of a cycle
+    expect(retimedStrokeMs(-500, 2.5, 2)).toBeCloseTo(1600, 6);
+  });
+
+  it('returns 0 rather than NaN when there is no old period to divide by', () => {
+    // the very first call on mount has no previous period
+    expect(retimedStrokeMs(1000, 0, 2)).toBe(0);
+    expect(retimedStrokeMs(1000, -1, 2)).toBe(0);
   });
 });
 
@@ -353,6 +394,100 @@ describe('stroke pace bar', () => {
     };
     const engine = fakeEngine(state);
     mountOverlay(document, engine as never, { density: 'pill' });
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
+  });
+});
+
+describe('stroke phase continuity across segments', () => {
+  type FakeAnim = { currentTime: number | null };
+
+  const STROKE_SELECTORS = ['.ov-stroke-fill', '.ov-cap-drive', '.ov-cap-recover'];
+
+  // jsdom has no Web Animations API, so stand one up: every stroke element
+  // reports a single fake animation whose currentTime the overlay can seek.
+  function stubAnimations(): Map<string, FakeAnim> {
+    const anims = new Map<string, FakeAnim>(
+      STROKE_SELECTORS.map((sel) => [sel, { currentTime: 0 }]),
+    );
+    Element.prototype.getAnimations = function (this: Element) {
+      for (const [sel, anim] of anims) {
+        if (this.matches(sel)) return [anim as unknown as Animation];
+      }
+      return [];
+    };
+    return anims;
+  }
+
+  // The shared fakeEngine swallows listeners; this one can drive a tick.
+  function tickingEngine(initial: SessionState) {
+    let state = initial;
+    const listeners: Array<(e: { type: string; state: SessionState }) => void> = [];
+    return {
+      on(fn: (e: { type: string; state: SessionState }) => void) {
+        listeners.push(fn);
+        return () => {};
+      },
+      getState: () => state,
+      tickTo(next: SessionState) {
+        state = next;
+        for (const fn of listeners) fn({ type: 'tick', state: next });
+      },
+      pause: () => {}, resume: () => {}, skipNext: () => {}, skipPrev: () => {}, stop: () => {},
+    };
+  }
+
+  const alloutState: SessionState = {
+    ...runningState,
+    currentIndex: 2,
+    segment: { id: 'y', intensity: 'allout', durationSec: 60 },
+  };
+
+  beforeEach(() => { document.body.innerHTML = ''; document.head.innerHTML = ''; });
+  afterEach(() => { delete (Element.prototype as Partial<Element>).getAnimations; });
+
+  it('carries the stroke phase across a rate change instead of restarting it', () => {
+    const anims = stubAnimations();
+    const engine = tickingEngine(runningState); // hard → 2.14s
+    mountOverlay(document, engine as never, { density: 'coach' });
+
+    // Halfway through the cycle at 2.14s — i.e. deep in the recovery.
+    for (const anim of anims.values()) anim.currentTime = 1070;
+
+    engine.tickTo(alloutState); // all-out → 2.00s
+
+    const root = document.querySelector('.ov-root') as HTMLElement;
+    expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
+    // still halfway through the cycle, now at the faster rate
+    for (const sel of STROKE_SELECTORS) {
+      expect(anims.get(sel)!.currentTime).toBeCloseTo(1000, 6);
+    }
+  });
+
+  it('leaves the running animations alone when the rate is unchanged', () => {
+    const anims = stubAnimations();
+    const engine = tickingEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'coach' });
+
+    for (const anim of anims.values()) anim.currentTime = 5000;
+    // a different segment, same intensity → same period → nothing to re-anchor
+    engine.tickTo({
+      ...runningState,
+      currentIndex: 3,
+      segment: { id: 'z', intensity: 'hard', durationSec: 60 },
+    });
+
+    for (const sel of STROKE_SELECTORS) {
+      expect(anims.get(sel)!.currentTime).toBe(5000);
+    }
+  });
+
+  it('still paces the bar in a host with no Web Animations API', () => {
+    // no stubAnimations() here: this is plain jsdom, and reduced motion
+    // (animation: none) looks the same to the overlay.
+    const engine = tickingEngine(runningState);
+    mountOverlay(document, engine as never, { density: 'pill' });
+    expect(() => engine.tickTo(alloutState)).not.toThrow();
     const root = document.querySelector('.ov-root') as HTMLElement;
     expect(root.style.getPropertyValue('--stroke-period')).toBe('2.00s');
   });
