@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec } from '../src/ui/overlayView';
+import { formatCountdown, spmLabel, comingUpLabel, mountOverlay, densityIcon, strokePeriodSec, retimedStrokeMs } from '../src/ui/overlayView';
 import type { SessionState } from '../src/core/sessionEngine';
 import { INTENSITY_META, type Segment } from '../src/core/types';
 
@@ -26,6 +26,47 @@ describe('strokePeriodSec', () => {
     expect(strokePeriodSec('medium')).toBeCloseTo(2.307692, 5); // 60/26
     expect(strokePeriodSec('hard')).toBeCloseTo(2.142857, 5); // 60/28
     expect(strokePeriodSec('allout')).toBe(2);      // 60/30
+  });
+});
+
+describe('retimedStrokeMs', () => {
+  // The stroke cycle is drive 0→33%, recovery 33→100%, at any rate.
+  it('keeps the same point in the cycle when the rate changes', () => {
+    // half a stroke in at 24 spm (2.5s) → half a stroke in at 30 spm (2.0s)
+    expect(retimedStrokeMs(1250, 2.5, 2)).toBe(1000);
+  });
+
+  it('keeps a mid-drive position mid-drive', () => {
+    // 0.165 of the cycle = halfway through the 0→33% drive
+    expect(retimedStrokeMs(0.165 * 2500, 2.5, 2)).toBeCloseTo(0.165 * 2000, 6);
+  });
+
+  it('lands exactly on the drive/recovery boundary', () => {
+    expect(retimedStrokeMs(0.33 * 2500, 2.5, 2)).toBeCloseTo(0.33 * 2000, 6);
+  });
+
+  it('keeps the catch at the catch', () => {
+    expect(retimedStrokeMs(0, 2.5, 2)).toBe(0);
+  });
+
+  it('reduces a local time that has run for many iterations', () => {
+    // 40.5 cycles of 2.5s: the half-cycle is what carries over, not the 40
+    expect(retimedStrokeMs(101250, 2.5, 2)).toBe(1000);
+  });
+
+  it('is the identity when the period does not change', () => {
+    expect(retimedStrokeMs(1234, 2.5, 2.5)).toBeCloseTo(1234, 6);
+  });
+
+  it('normalises a negative local time into the cycle', () => {
+    // -0.2 of a cycle is 0.8 of a cycle
+    expect(retimedStrokeMs(-500, 2.5, 2)).toBeCloseTo(1600, 6);
+  });
+
+  it('returns 0 rather than NaN when there is no old period to divide by', () => {
+    // the very first call on mount has no previous period
+    expect(retimedStrokeMs(1000, 0, 2)).toBe(0);
+    expect(retimedStrokeMs(1000, -1, 2)).toBe(0);
   });
 });
 

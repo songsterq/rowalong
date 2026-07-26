@@ -19,6 +19,20 @@ export function strokePeriodSec(i: Intensity): number {
   return 60 / INTENSITY_META[i].spm;
 }
 
+/** Local time (ms) that keeps a stroke animation at the same point in its cycle
+ *  after its period changes: the phase fraction is preserved, only the rate moves.
+ *  Returns 0 when there is no old period to divide by (the first call on mount). */
+export function retimedStrokeMs(
+  currentMs: number,
+  oldPeriodSec: number,
+  newPeriodSec: number,
+): number {
+  if (!(oldPeriodSec > 0)) return 0;
+  // `% 1` keeps the sign, so a negative local time needs the extra wrap.
+  const phase = (((currentMs / 1000 / oldPeriodSec) % 1) + 1) % 1;
+  return phase * newPeriodSec * 1000;
+}
+
 export function comingUpLabel(next: Segment | null | undefined): string {
   if (!next) return '';
   return `next: ${next.label ?? INTENSITY_META[next.intensity].label}`;
