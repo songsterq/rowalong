@@ -42,6 +42,14 @@ function runLoop(engine: SessionEngine) {
     engine.tick();
     if (engine.getState().status === 'done') {
       cancelAnimationFrame(rafId);
+      // Mirror the Electron overlay: let the finish tone ring out and leave 0:00
+      // on screen for a beat, then tear down. Without this the PiP window sits
+      // there frozen and the setup button stays stuck on "Stop workout".
+      // Guarded on engine identity so a stop-then-start inside the delay can't
+      // tear down the session that replaced this one.
+      setTimeout(() => {
+        if (currentEngine === engine) endSession();
+      }, 1000);
       return;
     }
     rafId = requestAnimationFrame(step);

@@ -161,8 +161,14 @@ ipcMain.on('start-session', (_event, payload) => {
 ipcMain.on('stop-session', () => {
   // Close the overlay; its 'closed' handler nulls overlayWin and notifies setup,
   // so there's exactly one place that ends a session.
+  //
+  // Deliberately no setupWin.focus() here: the whole point is that you're
+  // watching something. The setup window is a normal window in your main Space,
+  // so focusing it makes macOS switch Spaces and yanks you out of the
+  // fullscreen video the moment a workout ends. Let the overlay just disappear
+  // — setup still gets 'session-ended' and updates its button and history in
+  // the background, ready for whenever you switch back.
   if (overlayWin && !overlayWin.isDestroyed()) overlayWin.close();
-  if (setupWin && !setupWin.isDestroyed()) setupWin.focus();
 });
 
 ipcMain.on('move-overlay-by', (_event, { dx, dy }) => {
