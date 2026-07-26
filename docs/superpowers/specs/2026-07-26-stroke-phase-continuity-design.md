@@ -8,7 +8,7 @@
 
 When a workout crosses a segment boundary and the recommended stroke rate
 changes, the stroke pace bar currently jumps to an arbitrary point in the
-drive–recovery cycle — the resulting phase is arbitrary. It should instead
+drive–recovery cycle, cutting the rower's stroke short. It should instead
 **keep its place in the cycle and only change rate**: halfway through the drive
 at 24 spm becomes halfway through the drive at 30 spm, and the rower rows the
 second half of that drive at the new pace.
