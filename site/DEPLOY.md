@@ -31,7 +31,7 @@ The DMG is hosted in **Cloudflare R2**, not on Pages. The three `DOWNLOAD-URL`
 hrefs in `index.html` (header, hero, closing band) currently point at:
 
 ```
-https://rowalongcdn.endlessrainstudio.com/release/RowAlong-1.0.1-arm64.dmg
+https://rowalongcdn.endlessrainstudio.com/release/RowAlong-1.0.2-arm64.dmg
 ```
 
 To set up or move it:
