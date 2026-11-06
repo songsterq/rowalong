@@ -72,6 +72,21 @@ describe('Storage prefs', () => {
   it('defaults the push strategy to random', () => {
     expect(DEFAULT_PREFS.lastPushStyle).toBe('random');
   });
+
+  it('defaults the theme to dark (the original look)', () => {
+    expect(DEFAULT_PREFS.theme).toBe('dark');
+  });
+
+  it('fills in the dark theme for prefs saved before the theme existed', () => {
+    const mem = new Mem();
+    mem.setItem('wh.prefs', JSON.stringify({ density: 'coach', volume: 0.3 }));
+    expect(new Storage(mem).getPrefs().theme).toBe('dark');
+  });
+
+  it('persists the theme', () => {
+    store.setPrefs({ theme: 'light' });
+    expect(store.getPrefs().theme).toBe('light');
+  });
 });
 
 function sess(id: string, startedAt: number): SessionRecord {

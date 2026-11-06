@@ -1,5 +1,5 @@
 import { INTENSITY_META, Intensity, Segment, Template, makeId } from '../core/types';
-import { Storage, Density } from '../core/storage';
+import { Storage, Density, Theme, THEMES } from '../core/storage';
 import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
 import { PushStyle, PUSH_STYLES } from '../core/pushStyles';
 import { starterTemplates } from '../core/starters';
@@ -66,6 +66,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     ? prefs.lastPushStyle
     : 'random';
   const initialMin = snapMinutes(prefs.lastTotalMin);
+  const initialTheme: Theme = THEMES.includes(prefs.theme) ? prefs.theme : 'dark';
 
   const legend = INTENSITY_ORDER.map((i) => {
     const m = INTENSITY_META[i];
@@ -73,7 +74,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   }).join('');
 
   container.innerHTML = `
-    <div class="setup">
+    <div class="setup" data-theme="${initialTheme}">
       <div class="setup-dragbar"></div>
       <header class="brand">
         <div class="brand-mark">${ICON.waves}</div>
@@ -169,6 +170,13 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
                 <label>Mute tones</label>
                 <span class="toggle">
                   <input class="setup-muted" type="checkbox" ${prefs.muted ? 'checked' : ''} />
+                  <span class="track"></span>
+                </span>
+              </div>
+              <div class="pref-row">
+                <label for="setup-dark">Dark mode</label>
+                <span class="toggle">
+                  <input id="setup-dark" class="setup-dark" type="checkbox" ${initialTheme === 'dark' ? 'checked' : ''} />
                   <span class="track"></span>
                 </span>
               </div>
@@ -316,6 +324,18 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   container.querySelector('.setup-muted')!.addEventListener('change', (e) => {
     opts.storage.setPrefs({ muted: (e.target as HTMLInputElement).checked });
   });
+
+  const setupRoot = container.querySelector('.setup') as HTMLElement;
+  const applyTheme = (theme: Theme) => {
+    setupRoot.dataset.theme = theme;
+    window.electronAPI?.setTheme(theme);
+  };
+  container.querySelector('.setup-dark')!.addEventListener('change', (e) => {
+    const theme: Theme = (e.target as HTMLInputElement).checked ? 'dark' : 'light';
+    opts.storage.setPrefs({ theme });
+    applyTheme(theme);
+  });
+  applyTheme(initialTheme);
 
   // The start button is a Start⇄Stop toggle. While a session is active it stops
   // the running session instead of launching a second one — under Electron a

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mountSetup, summarize } from '../src/ui/setupView';
 import { Storage, type KeyValueStore } from '../src/core/storage';
 import type { Segment, SessionRecord } from '../src/core/types';
@@ -134,6 +134,63 @@ describe('setup view', () => {
     const remounted = document.getElementById('app')!;
     mountSetup(remounted, { storage, onStart: () => {} });
     expect((remounted.querySelector('.setup-strategy') as HTMLSelectElement).value).toBe('steps');
+  });
+});
+
+describe('setup view dark mode toggle', () => {
+  const root = () => container.querySelector('.setup') as HTMLElement;
+  const toggle = () => container.querySelector('.setup-dark') as HTMLInputElement;
+  const flip = (checked: boolean) => {
+    toggle().checked = checked;
+    toggle().dispatchEvent(new Event('change'));
+  };
+
+  afterEach(() => {
+    delete window.electronAPI;
+  });
+
+  it('starts dark with the toggle on by default', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(root().dataset.theme).toBe('dark');
+    expect(toggle().checked).toBe(true);
+  });
+
+  it('switching it off goes light and persists the choice', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    flip(false);
+    expect(root().dataset.theme).toBe('light');
+    expect(storage.getPrefs().theme).toBe('light');
+  });
+
+  it('switching it back on returns to dark', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    flip(false);
+    flip(true);
+    expect(root().dataset.theme).toBe('dark');
+    expect(storage.getPrefs().theme).toBe('dark');
+  });
+
+  it('restores a saved light theme on mount', () => {
+    storage.setPrefs({ theme: 'light' });
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(root().dataset.theme).toBe('light');
+    expect(toggle().checked).toBe(false);
+  });
+
+  it('falls back to dark for an unrecognised stored theme', () => {
+    storage.setPrefs({ theme: 'sepia' as never });
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(root().dataset.theme).toBe('dark');
+    expect(toggle().checked).toBe(true);
+  });
+
+  it('tells Electron the theme on mount and on every change', () => {
+    const setTheme = vi.fn();
+    window.electronAPI = { setTheme } as unknown as NonNullable<typeof window.electronAPI>;
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(setTheme).toHaveBeenLastCalledWith('dark');
+    flip(false);
+    expect(setTheme).toHaveBeenLastCalledWith('light');
   });
 });
 
