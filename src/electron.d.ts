@@ -1,5 +1,5 @@
 import type { Segment } from './core/types';
-import type { Prefs } from './core/storage';
+import type { Prefs, Theme } from './core/storage';
 
 /** Payload handed from the setup window to the native overlay window. */
 export interface SessionPayload {
@@ -23,6 +23,9 @@ export interface ElectronAPI {
   onSessionPayload(cb: (payload: SessionPayload) => void): void;
   /** Setup window: notified when the overlay window closes (session ended). */
   onSessionEnded(cb: () => void): void;
+  /** Setup window → main: match native chrome (menus, select popups, window
+   *  background) to the page theme. */
+  setTheme(theme: Theme): void;
 }
 
 declare global {

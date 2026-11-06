@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // setup window → main
   startSession: (payload) => ipcRenderer.send('start-session', payload),
+  setTheme: (theme) => ipcRenderer.send('set-theme', theme),
   // overlay window → main
   stopSession: () => ipcRenderer.send('stop-session'),
   moveOverlayBy: (dx, dy) => ipcRenderer.send('move-overlay-by', { dx, dy }),

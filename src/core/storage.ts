@@ -3,12 +3,17 @@ import { PushStyle } from './pushStyles';
 
 export type Density = 'pill' | 'coach';
 
+/** Setup-page colour theme. The overlay is a HUD over video and stays dark. */
+export type Theme = 'dark' | 'light';
+export const THEMES: readonly Theme[] = ['dark', 'light'];
+
 export interface Prefs {
   density: Density;
   volume: number; // 0..1
   muted: boolean;
   lastTotalMin: number;
   lastPushStyle: PushStyle;
+  theme: Theme;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -17,6 +22,7 @@ export const DEFAULT_PREFS: Prefs = {
   muted: false,
   lastTotalMin: 20,
   lastPushStyle: 'random',
+  theme: 'dark',
 };
 
 export interface KeyValueStore {

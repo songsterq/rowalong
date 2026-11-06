@@ -171,6 +171,17 @@ ipcMain.on('stop-session', () => {
   if (overlayWin && !overlayWin.isDestroyed()) overlayWin.close();
 });
 
+// Setup page's dark-mode toggle. nativeTheme is app-wide, but the overlay window
+// is transparent with hard-coded colours, so only the setup window's native
+// chrome (menus, <select> popups, traffic-light glyphs) and its pre-paint
+// background follow. The background hexes match the page's --bg in SETUP_CSS.
+const THEME_BG = { dark: '#151310', light: '#f5f3f0' };
+ipcMain.on('set-theme', (_event, theme) => {
+  if (!Object.hasOwn(THEME_BG, theme)) return;
+  nativeTheme.themeSource = theme;
+  if (setupWin && !setupWin.isDestroyed()) setupWin.setBackgroundColor(THEME_BG[theme]);
+});
+
 ipcMain.on('move-overlay-by', (_event, { dx, dy }) => {
   if (overlayWin && !overlayWin.isDestroyed()) {
     const [x, y] = overlayWin.getPosition();

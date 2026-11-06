@@ -114,6 +114,14 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   stylesheet into code. The failure surfaces as a nonsense `tsc` error pointing
   at a CSS token (e.g. `Cannot find name 'root'`) plus a chunk of the suite
   failing to import — not as a style bug. Write CSS comments without backticks.
+- **The setup page is themed by tokens; the overlay is not.** `SETUP_CSS` reads
+  every surface/text colour from custom properties on `.setup`, with a
+  `.setup[data-theme="light"]` block overriding them (pref `theme`, toggled by
+  Preferences → Dark mode). A new colour needs a token in *both* blocks, not a
+  literal. Two places can't read the tokens and mirror `--bg` by hand: the
+  `body:has(...)` background rules and `THEME_BG` in `electron/app.cjs` (which
+  also flips `nativeTheme` via the `set-theme` IPC). `OVERLAY_CSS` stays dark
+  on purpose — it's a HUD over video.
 - **Vitest is pinned to `TZ=America/Los_Angeles`** (`vite.config.ts`, `test.env`)
   for *all* test files, not just history ones — `history.ts`'s day bucketing
   (`dayKey`) is local-date based, so running under a UTC CI runner would silently

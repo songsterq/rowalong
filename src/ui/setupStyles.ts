@@ -13,9 +13,24 @@ export const SETUP_CSS = `
     --text:      oklch(0.97 0.004 80);
     --dim:       oklch(0.97 0.004 80 / 0.62);
     --mute:      oklch(0.97 0.004 80 / 0.4);
+    --hover:     oklch(0.28 0.006 70);
+    --row-hover: oklch(0.2 0.006 70);
+    --raised:    oklch(0.24 0.006 70);
+    --track:     oklch(0.18 0.006 70);
+    --wash:      oklch(1 0 0 / 0.03);
+    --wash-2:    oklch(1 0 0 / 0.06);
+    --sheen:     oklch(1 0 0 / 0.08);
+    --sheen-2:   oklch(1 0 0 / 0.05);
+    --shadow:    oklch(0 0 0 / 0.3);
+    --shadow-2:  oklch(0 0 0 / 0.4);
+    --knob:      oklch(0.97 0.004 80);
+    --knob-ring: oklch(0.3 0.05 50);
+    --toggle-on: oklch(0.6 0.16 40 / 0.5);
+    --bar-bg: linear-gradient(180deg, oklch(0.15 0.006 70 / 0), oklch(0.13 0.006 70) 32%);
     --cta: linear-gradient(135deg, #ff8c42, #ff4d4f);
     --radius: 16px;
     --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    color-scheme: dark;
     font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
     color: var(--text);
     line-height: 1.45;
@@ -35,11 +50,47 @@ export const SETUP_CSS = `
     user-select: text;
     cursor: auto;
   }
+  /* Light theme (Preferences, Dark mode off). Same warm hue family, inverted:
+     panels are the brightest layer, insets sit slightly below them, and depth
+     comes from soft warm shadows instead of white sheens. */
+  .setup[data-theme="light"] {
+    --bg:        oklch(0.965 0.005 80);
+    --bg-2:      oklch(0.95 0.005 80);
+    --surface:   oklch(0.99 0.003 80);
+    --surface-2: oklch(0.995 0.002 80);
+    --inset:     oklch(0.955 0.005 80);
+    --border:    oklch(0.22 0.01 70 / 0.12);
+    --border-2:  oklch(0.22 0.01 70 / 0.07);
+    --text:      oklch(0.22 0.01 70);
+    --dim:       oklch(0.22 0.01 70 / 0.7);
+    --mute:      oklch(0.22 0.01 70 / 0.52);
+    --hover:     oklch(0.965 0.005 80);
+    --row-hover: oklch(0.94 0.006 80);
+    --raised:    oklch(0.995 0.002 80);
+    --track:     oklch(0.9 0.006 80);
+    --wash:      oklch(0 0 0 / 0.03);
+    --wash-2:    oklch(0 0 0 / 0.05);
+    --sheen:     oklch(1 0 0 / 0.7);
+    --sheen-2:   oklch(0 0 0 / 0.04);
+    --shadow:    oklch(0.3 0.02 60 / 0.1);
+    --shadow-2:  oklch(0.3 0.02 60 / 0.16);
+    --knob:      oklch(0.995 0.002 80);
+    --knob-ring: oklch(0.68 0.15 45);
+    --toggle-on: oklch(0.68 0.16 45);
+    --bar-bg: linear-gradient(180deg, oklch(0.965 0.005 80 / 0), oklch(0.95 0.005 80) 32%);
+    color-scheme: light;
+  }
   body:has(> #app > .setup), body:has(> #app .setup) {
     margin: 0;
     background: oklch(0.15 0.006 70);
     background-image: radial-gradient(120% 80% at 50% -20%, oklch(0.6 0.16 45 / 0.10), transparent 60%);
     background-attachment: fixed;
+  }
+  /* The body sits outside .setup so it can't read the theme tokens; mirror --bg.
+     The data-theme attribute lifts specificity above the dark rule above. */
+  body:has(> #app > .setup[data-theme="light"]), body:has(> #app .setup[data-theme="light"]) {
+    background-color: oklch(0.965 0.005 80);
+    background-image: radial-gradient(120% 80% at 50% -20%, oklch(0.75 0.14 50 / 0.12), transparent 60%);
   }
   .setup *, .setup *::before, .setup *::after { box-sizing: border-box; }
 
@@ -88,7 +139,7 @@ export const SETUP_CSS = `
     cursor: pointer; transition: color .15s, background .2s var(--ease); }
   .setup .seg-group button .u { font-size: 10.5px; color: var(--mute); margin-left: 3px; font-weight: 600; }
   .setup .seg-group button[aria-pressed="true"] { background: var(--surface-2); color: var(--text);
-    box-shadow: 0 1px 0 oklch(1 0 0 / 0.08) inset, 0 4px 12px oklch(0 0 0 / 0.3); }
+    box-shadow: 0 1px 0 var(--sheen) inset, 0 4px 12px var(--shadow); }
   /* the real <select> kept for tests/a11y, removed from the visual flow */
   .setup .setup-minutes { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
@@ -109,7 +160,7 @@ export const SETUP_CSS = `
     padding: 11px 16px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
     display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
     transition: transform .15s var(--ease), background .2s, border-color .2s; }
-  .setup .btn:hover { background: oklch(0.28 0.006 70); transform: translateY(-1px); }
+  .setup .btn:hover { background: var(--hover); transform: translateY(-1px); }
   .setup .btn:active { transform: translateY(0); }
   .setup .btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.8; fill: none;
     stroke-linecap: round; stroke-linejoin: round; }
@@ -118,7 +169,7 @@ export const SETUP_CSS = `
     margin-top: 10px; padding: 12px; border-radius: 11px; border: 1px dashed var(--border);
     background: transparent; color: var(--dim);
     transition: background .2s, color .2s, border-color .2s; }
-  .setup .seg-add:hover { background: oklch(1 0 0 / 0.03); color: var(--text); border-color: var(--mute); }
+  .setup .seg-add:hover { background: var(--wash); color: var(--text); border-color: var(--mute); }
 
   /* ---------- workout timeline ---------- */
   .setup .timeline-wrap { margin: 20px 0 14px; }
@@ -126,7 +177,7 @@ export const SETUP_CSS = `
     font-size: 11px; color: var(--mute); letter-spacing: 0.04em; margin-bottom: 8px;
     text-transform: uppercase; font-weight: 650; }
   .setup .timeline { height: 12px; border-radius: 99px;
-    box-shadow: 0 1px 0 oklch(1 0 0 / 0.05) inset, 0 0 0 1px var(--border-2);
+    box-shadow: 0 1px 0 var(--sheen-2) inset, 0 0 0 1px var(--border-2);
     background-color: var(--inset); }
   .setup .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
   .setup .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--dim); }
@@ -137,10 +188,10 @@ export const SETUP_CSS = `
   .setup .seg-row { display: flex; align-items: center; gap: 12px; background: var(--inset);
     border: 1px solid var(--border-2); border-radius: 12px; padding: 9px 12px 9px 10px;
     transition: border-color .15s, background .15s, transform .12s ease, box-shadow .12s ease; }
-  .setup .seg-row:hover { border-color: var(--border); background: oklch(0.2 0.006 70); }
+  .setup .seg-row:hover { border-color: var(--border); background: var(--row-hover); }
   .setup .seg-row--dragging { position: relative; z-index: 5; transform: scale(1.025);
-    border-color: var(--border); background: oklch(0.24 0.006 70);
-    box-shadow: 0 12px 28px oklch(0 0 0 / 0.4), 0 0 0 1px var(--border); }
+    border-color: var(--border); background: var(--raised);
+    box-shadow: 0 12px 28px var(--shadow-2), 0 0 0 1px var(--border); }
   .setup .seg-handle { color: var(--mute); cursor: grab; font-size: 15px; line-height: 1; letter-spacing: -1px;
     touch-action: none; }
   .setup .seg-handle:active { cursor: grabbing; }
@@ -167,7 +218,7 @@ export const SETUP_CSS = `
   .setup .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border: 0;
     background: transparent; color: var(--mute); cursor: pointer; border-radius: 8px; font-size: 13px;
     transition: color .15s, background .15s; }
-  .setup .icon-btn:hover { background: oklch(1 0 0 / 0.06); color: var(--text); }
+  .setup .icon-btn:hover { background: var(--wash-2); color: var(--text); }
   .setup .icon-btn.del:hover, .setup .seg-del:hover { color: #ff4d4f; background: oklch(0.6 0.2 25 / 0.15); }
 
   /* save row */
@@ -199,31 +250,32 @@ export const SETUP_CSS = `
   .setup .pref .select { width: 132px; }
   .setup .pref .select select { padding: 9px 36px 9px 12px; font-size: 13px; }
   .setup .setup-volume { -webkit-appearance: none; appearance: none; width: 132px; height: 6px;
-    border-radius: 99px; background: var(--inset); outline: none; }
+    border-radius: 99px; background: var(--track); outline: none; }
   .setup .setup-volume::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px;
-    border-radius: 50%; background: var(--text); cursor: pointer; border: 3px solid oklch(0.3 0.05 50);
-    box-shadow: 0 2px 6px oklch(0 0 0 / 0.4); }
+    border-radius: 50%; background: var(--knob); cursor: pointer; border: 3px solid var(--knob-ring);
+    box-shadow: 0 2px 6px var(--shadow-2); }
   .setup .toggle { position: relative; width: 42px; height: 24px; flex: none; }
   .setup .toggle input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
   .setup .toggle .track { position: absolute; inset: 0; border-radius: 99px; background: var(--inset);
     border: 1px solid var(--border); transition: background .2s var(--ease); pointer-events: none; }
   .setup .toggle .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
     border-radius: 50%; background: var(--dim); transition: transform .22s var(--ease), background .2s; }
-  .setup .toggle input:checked + .track { background: oklch(0.6 0.16 40 / 0.5); border-color: transparent; }
-  .setup .toggle input:checked + .track::after { transform: translateX(18px); background: var(--text); }
+  .setup .toggle input:checked + .track { background: var(--toggle-on); border-color: transparent; }
+  .setup .toggle input:checked + .track::after { transform: translateX(18px); background: var(--knob); }
+  .setup .toggle input:focus-visible + .track { box-shadow: 0 0 0 3px oklch(0.7 0.16 45 / 0.25); }
 
   /* ---------- sticky start bar ---------- */
   .setup-startbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-    background: linear-gradient(180deg, oklch(0.15 0.006 70 / 0), oklch(0.13 0.006 70) 32%);
+    background: var(--bar-bg);
     border-top: 1px solid var(--border); }
   .setup-startbar-inner { max-width: 1000px; margin: 0 auto; padding: 16px 24px;
     display: flex; align-items: center; justify-content: space-between; gap: 20px;
-    font-family: -apple-system, system-ui, sans-serif; color: oklch(0.97 0.004 80); }
+    font-family: -apple-system, system-ui, sans-serif; color: var(--text); }
   .setup-startbar .summary { display: flex; align-items: baseline; gap: 12px; }
   .setup-startbar .summary .total { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em; }
-  .setup-startbar .summary .sub { font-size: 12.5px; color: oklch(0.97 0.004 80 / 0.4); }
-  .setup-startbar .summary .sub b { color: oklch(0.97 0.004 80 / 0.62); font-weight: 650; }
+  .setup-startbar .summary .sub { font-size: 12.5px; color: var(--mute); }
+  .setup-startbar .summary .sub b { color: var(--dim); font-weight: 650; }
   .setup-start { font: inherit; font-weight: 750; font-size: 15px; letter-spacing: 0.04em;
     text-transform: uppercase; font-family: -apple-system, system-ui, sans-serif;
     color: oklch(0.16 0.02 50); background: linear-gradient(135deg, #ff8c42, #ff4d4f); border: 0;
@@ -261,7 +313,7 @@ export const SETUP_CSS = `
     text-align: left; background: var(--inset); border: 1px solid var(--border-2);
     border-radius: 9px; padding: 7px 10px; color: var(--text); font: inherit;
     font-size: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
-  .setup .hist-item:hover { border-color: var(--border); background: oklch(0.2 0.006 70); }
+  .setup .hist-item:hover { border-color: var(--border); background: var(--row-hover); }
   .setup .hist-when { color: var(--mute); font-size: 11px; min-width: 26px; }
   .setup .hist-name { flex: 1; font-weight: 650; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; }
