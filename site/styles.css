@@ -278,12 +278,33 @@ img { display: block; max-width: 100%; }
 .cta p { margin: 0 auto 1.6rem; max-width: 44ch; color: var(--fg-mut); }
 .cta .dl-group { align-items: center; }
 
+/* ---- privacy policy: a quiet two-column ledger, same hairlines as the spec ---- */
+.privacy { padding-block: clamp(2.5rem, 6vw, 4.5rem); scroll-margin-top: 64px; }
+.policy-date { margin: 0.8rem 0 0; font-size: 0.9rem; color: var(--fg-dim); }
+.policy { margin: 0; border-top: 1px solid var(--line); }
+.policy-row {
+  display: grid; gap: 0.4rem 2rem; align-items: baseline;
+  grid-template-columns: 1fr;
+  padding: clamp(1.1rem, 2.5vw, 1.5rem) 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 720px) {
+  .policy-row { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: 2.5rem; }
+}
+.policy dt { font-family: "Saira", sans-serif; font-weight: 600;
+  font-size: 1.08rem; letter-spacing: -0.01em; }
+.policy dd { margin: 0; max-width: 68ch; color: var(--fg-mut); }
+.policy dd b { color: var(--fg); font-weight: 600; }
+
 /* ---- footer ---- */
 .site-footer { border-top: 1px solid var(--line); padding-block: 2.5rem 3rem; }
 .footer-inner { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem;
   align-items: center; justify-content: space-between; color: var(--fg-dim); font-size: 0.9rem; }
 .footer-inner .wordmark { font-size: 1rem; color: var(--fg-mut); }
 .footer-inner .wordmark svg { width: 18px; height: 18px; }
+.footer-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; }
+.footer-meta a { color: var(--fg-mut); text-decoration: none; transition: color 0.2s var(--ease); }
+.footer-meta a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---- entrance motion (respecting reduced-motion) ---- */
 @media (prefers-reduced-motion: no-preference) {
