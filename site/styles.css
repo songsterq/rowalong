@@ -1,11 +1,15 @@
 /* RowAlong landing page
    Mirrors the app: near-black surface + the intensity effort-ramp
    (easy green -> medium amber -> hard orange -> all-out red) as accents.
+   Follows the system theme: dark is the default, and a light palette takes
+   over under prefers-color-scheme: light (see the block after :root).
    Display type: Saira (athletic grotesque). Body: Hanken Grotesk.
    The overlay mockup deliberately uses the app's own system-font stack so it
-   reads as the real product UI. */
+   reads as the real product UI, and stays dark in both themes. */
 
 :root {
+  color-scheme: light dark;
+
   /* Near-black surface, faintly cool, tracking the app's #121214. */
   --bg:      oklch(0.15 0.006 264);
   --bg-2:    oklch(0.19 0.007 264);
@@ -27,9 +31,44 @@
   --accent: #ff8c42;
   --on-accent: oklch(0.2 0.03 55);
 
+  /* Ramp colors used as TEXT or strokes on the page surface. On dark they are
+     the app hex; the light theme swaps in deeper shades, since the app hex is
+     only 1.6:1 (amber) to 2.2:1 (orange) on white. Fills (button, ramp rule,
+     overlay mockup) keep the app hex in both themes. */
+  --accent-ink: var(--accent);
+  --easy-ink:   var(--easy);
+  --medium-ink: var(--medium);
+  --hard-ink:   var(--hard);
+  --allout-ink: var(--allout);
+
+  --screen-shadow: 0 40px 80px -40px oklch(0 0 0 / 0.8), 0 0 0 1px oklch(0 0 0 / 0.4);
+
   --maxw: 1180px;
   --pad: clamp(1.25rem, 5vw, 4rem);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Light theme: same faintly cool hue, inverted lightness. Every text token
+   clears WCAG AA (4.5:1) on --bg: fg-dim 5.8, medium-ink 4.7, allout-ink 4.6. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:      oklch(0.985 0.004 264);
+    --bg-2:    oklch(0.955 0.006 264);
+    --bg-3:    oklch(0.92 0.008 264);
+    --fg:      oklch(0.2 0.01 264);
+    --fg-mut:  oklch(0.42 0.014 264);
+    --fg-dim:  oklch(0.5 0.014 264);
+    --line:    oklch(0 0 0 / 0.10);
+    --line-2:  oklch(0 0 0 / 0.18);
+
+    --accent-ink: #c2410c;
+    --easy-ink:   #047857;
+    --medium-ink: #a16207;
+    --hard-ink:   #c2410c;
+    --allout-ink: #dc2626;
+
+    --screen-shadow: 0 40px 80px -40px oklch(0.25 0.02 264 / 0.45), 0 0 0 1px oklch(0 0 0 / 0.12);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +96,7 @@ a { color: inherit; }
 img { display: block; max-width: 100%; }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -95,7 +134,7 @@ img { display: block; max-width: 100%; }
   font-weight: 700; font-size: 1.18rem; letter-spacing: 0.01em;
   text-decoration: none; color: var(--fg);
 }
-.wordmark svg { width: 22px; height: 22px; fill: none; stroke: var(--accent);
+.wordmark svg { width: 22px; height: 22px; fill: none; stroke: var(--accent-ink);
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .header-cta {
   font-family: "Saira", sans-serif; font-weight: 600; font-size: 0.92rem;
@@ -123,7 +162,7 @@ img { display: block; max-width: 100%; }
   line-height: 1;
   letter-spacing: -0.025em;
 }
-.hero h1 .accent { color: var(--accent); }
+.hero h1 .accent { color: var(--accent-ink); }
 .hero-lede {
   margin: 0 0 2rem; max-width: 30ch;
   font-size: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
@@ -156,7 +195,7 @@ img { display: block; max-width: 100%; }
   position: relative; aspect-ratio: 16 / 10; width: 100%;
   border-radius: 16px; overflow: hidden;
   border: 1px solid var(--line);
-  box-shadow: 0 40px 80px -40px oklch(0 0 0 / 0.8), 0 0 0 1px oklch(0 0 0 / 0.4);
+  box-shadow: var(--screen-shadow);
 }
 .screen-video { position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; filter: brightness(0.62) saturate(1.05); }
@@ -258,7 +297,7 @@ img { display: block; max-width: 100%; }
 .step { position: relative; padding-top: 1.25rem; border-top: 2px solid var(--line-2); }
 .step .k {
   font-family: "Saira", sans-serif; font-weight: 700; font-size: 0.8rem;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-ink);
 }
 .step h3 { margin: 0.5rem 0 0.4rem; font-weight: 600; font-size: 1.2rem; letter-spacing: -0.01em; }
 .step p { margin: 0; color: var(--fg-mut); font-size: 0.97rem; }
