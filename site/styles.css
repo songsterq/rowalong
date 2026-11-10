@@ -1,11 +1,14 @@
 /* RowAlong landing page
-   Mirrors the app: near-black surface + the intensity effort-ramp
+   Mirrors the app: near-black surface (or a cool near-white when the system is
+   in light mode) + the intensity effort-ramp
    (easy green -> medium amber -> hard orange -> all-out red) as accents.
    Display type: Saira (athletic grotesque). Body: Hanken Grotesk.
    The overlay mockup deliberately uses the app's own system-font stack so it
    reads as the real product UI. */
 
 :root {
+  color-scheme: dark light;
+
   /* Near-black surface, faintly cool, tracking the app's #121214. */
   --bg:      oklch(0.15 0.006 264);
   --bg-2:    oklch(0.19 0.007 264);
@@ -27,9 +30,42 @@
   --accent: #ff8c42;
   --on-accent: oklch(0.2 0.03 55);
 
+  /* "Ink" = a ramp color used as text or a thin stroke. On the dark surface the
+     raw hex reads fine; light mode swaps in darker tones that clear 4.5:1. */
+  --accent-ink: var(--accent);
+  --easy-ink:   var(--easy);
+  --medium-ink: var(--medium);
+  --hard-ink:   var(--hard);
+  --allout-ink: var(--allout);
+
+  --screen-shadow: 0 40px 80px -40px oklch(0 0 0 / 0.8), 0 0 0 1px oklch(0 0 0 / 0.4);
+
   --maxw: 1180px;
   --pad: clamp(1.25rem, 5vw, 4rem);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Light mode follows the OS setting. Only the page surface flips: the hero
+   screen and its overlay mockup stay dark, because the real overlay is dark. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:      oklch(0.985 0.003 264);
+    --bg-2:    oklch(0.96 0.005 264);
+    --bg-3:    oklch(0.93 0.007 264);
+    --fg:      oklch(0.2 0.01 264);
+    --fg-mut:  oklch(0.43 0.012 264);
+    --fg-dim:  oklch(0.5 0.013 264);
+    --line:    oklch(0 0 0 / 0.10);
+    --line-2:  oklch(0 0 0 / 0.17);
+
+    --accent-ink: oklch(0.54 0.16 48);
+    --easy-ink:   oklch(0.53 0.12 160);
+    --medium-ink: oklch(0.54 0.12 75);
+    --hard-ink:   oklch(0.54 0.16 48);
+    --allout-ink: oklch(0.53 0.19 25);
+
+    --screen-shadow: 0 40px 70px -40px oklch(0.25 0.02 264 / 0.45), 0 0 0 1px oklch(0 0 0 / 0.08);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +93,7 @@ a { color: inherit; }
 img { display: block; max-width: 100%; }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -95,7 +131,7 @@ img { display: block; max-width: 100%; }
   font-weight: 700; font-size: 1.18rem; letter-spacing: 0.01em;
   text-decoration: none; color: var(--fg);
 }
-.wordmark svg { width: 22px; height: 22px; fill: none; stroke: var(--accent);
+.wordmark svg { width: 22px; height: 22px; fill: none; stroke: var(--accent-ink);
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .header-cta {
   font-family: "Saira", sans-serif; font-weight: 600; font-size: 0.92rem;
@@ -123,7 +159,7 @@ img { display: block; max-width: 100%; }
   line-height: 1;
   letter-spacing: -0.025em;
 }
-.hero h1 .accent { color: var(--accent); }
+.hero h1 .accent { color: var(--accent-ink); }
 .hero-lede {
   margin: 0 0 2rem; max-width: 30ch;
   font-size: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
@@ -156,7 +192,7 @@ img { display: block; max-width: 100%; }
   position: relative; aspect-ratio: 16 / 10; width: 100%;
   border-radius: 16px; overflow: hidden;
   border: 1px solid var(--line);
-  box-shadow: 0 40px 80px -40px oklch(0 0 0 / 0.8), 0 0 0 1px oklch(0 0 0 / 0.4);
+  box-shadow: var(--screen-shadow);
 }
 .screen-video { position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; filter: brightness(0.62) saturate(1.05); }
@@ -258,7 +294,7 @@ img { display: block; max-width: 100%; }
 .step { position: relative; padding-top: 1.25rem; border-top: 2px solid var(--line-2); }
 .step .k {
   font-family: "Saira", sans-serif; font-weight: 700; font-size: 0.8rem;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-ink);
 }
 .step h3 { margin: 0.5rem 0 0.4rem; font-weight: 600; font-size: 1.2rem; letter-spacing: -0.01em; }
 .step p { margin: 0; color: var(--fg-mut); font-size: 0.97rem; }
