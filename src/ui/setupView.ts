@@ -7,6 +7,7 @@ import { renderEditor, readEditor } from './segmentEditor';
 import { formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
 import { renderHistory } from './historyPanel';
+import { serializeWorkoutSpec, specFileName, toWorkoutSpec } from '../core/workoutSpec';
 
 const titleCase = (s: string) => s[0].toUpperCase() + s.slice(1);
 const INTENSITY_ORDER: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
@@ -16,6 +17,24 @@ export interface SetupOpts {
   onStart: (segments: Segment[], programName: string) => void;
   /** Called when the start button is clicked while a session is active. */
   onStop?: () => void;
+  /** Delivers an exported workout spec. Defaults to a browser file download,
+   *  which Electron turns into a native Save dialog. Injectable for tests. */
+  onExport?: (fileName: string, text: string) => void;
+}
+
+/** Save text as a file via a throwaway object URL + <a download>. */
+export function downloadText(doc: Document, fileName: string, text: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = doc.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  doc.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke on the next task: revoking synchronously can cancel the download
+  // before the browser has picked the blob up.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /** Handle returned by mountSetup so the host can sync the start/stop button. */
@@ -46,6 +65,7 @@ const ICON = {
     '<svg viewBox="0 0 24 24"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>',
   generate: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg>',
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
+  download: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
 };
@@ -134,6 +154,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
             <div class="save-row">
               <input class="setup-name" type="text" placeholder="Name this session to save it as a template" />
               <button class="btn setup-save">${ICON.save} Save</button>
+              <button class="btn setup-export" title="Download this workout as a JSON spec">${ICON.download} Export</button>
             </div>
           </section>
         </div>
@@ -305,6 +326,16 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     opts.storage.saveTemplate(tpl);
     nameEl.value = '';
     renderTemplates();
+  });
+
+  const exportSpec =
+    opts.onExport ?? ((fileName, text) => downloadText(container.ownerDocument, fileName, text));
+  container.querySelector('.setup-export')!.addEventListener('click', () => {
+    const segments = readEditor(editor);
+    if (segments.length === 0) return;
+    // A typed name wins (it's what Save would call it); else where it came from.
+    const spec = toWorkoutSpec(nameEl.value.trim() || programName, segments);
+    exportSpec(specFileName(spec.name), serializeWorkoutSpec(spec));
   });
 
   container.querySelector('.setup-density')!.addEventListener('change', (e) => {

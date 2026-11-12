@@ -50,6 +50,8 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
     weekly / all-time stats over `SessionRecord[]`.
   - `sessionRecorder.ts` — `createRecorder(storage, ctx)`: write-once
     `finish(elapsedSec, completed)` that turns a run into a `SessionRecord`.
+  - `workoutSpec.ts` — the portable export format (`rowalong.workout`, v1):
+    `toWorkoutSpec` (drops runtime ids), `serializeWorkoutSpec`, `specFileName`.
 - `src/ui/` — DOM:
   - `overlayView.ts` — the floating widget; **injects its own CSS** so it works in
     any host document; pill/coach density toggle; click-to-pause; controls.

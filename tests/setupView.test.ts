@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mountSetup, summarize } from '../src/ui/setupView';
+import { mountSetup, summarize, downloadText } from '../src/ui/setupView';
 import { Storage, type KeyValueStore } from '../src/core/storage';
 import type { Segment, SessionRecord } from '../src/core/types';
 
@@ -234,5 +234,90 @@ describe('setup view history panel', () => {
     storage.recordSession(sess('h2', 'Later workout'));
     setup.refreshHistory();
     expect(container.querySelectorAll('.hist-item')).toHaveLength(1);
+  });
+});
+
+describe('setup view export', () => {
+  const exportVia = (
+    opts: Partial<Parameters<typeof mountSetup>[1]> = {},
+    before?: () => void,
+  ) => {
+    const onExport = vi.fn();
+    mountSetup(container, { storage, onStart: () => {}, onExport, ...opts });
+    before?.();
+    container.querySelector<HTMLButtonElement>('.setup-export')!.click();
+    return onExport;
+  };
+
+  it('hands the current editor workout to onExport as a JSON spec', () => {
+    const onExport = exportVia({}, () =>
+      container.querySelector<HTMLButtonElement>('.setup-load')!.click(),
+    );
+    expect(onExport).toHaveBeenCalledOnce();
+    const [fileName, text] = onExport.mock.calls[0];
+    expect(fileName).toBe('quick-20.rowalong.json');
+    const spec = JSON.parse(text);
+    expect(spec.format).toBe('rowalong.workout');
+    expect(spec.name).toBe('Quick 20');
+    expect(spec.segments).toHaveLength(container.querySelectorAll('.seg-row').length);
+  });
+
+  it('exports manual block edits, not the original template', () => {
+    const onExport = exportVia({}, () => {
+      container.querySelector<HTMLButtonElement>('.setup-load')!.click();
+      const dur = container.querySelector<HTMLInputElement>('.seg-dur')!;
+      dur.value = '45';
+      dur.dispatchEvent(new Event('input'));
+    });
+    const spec = JSON.parse(onExport.mock.calls[0][1]);
+    expect(spec.segments[0].durationSec).toBe(45);
+  });
+
+  it('prefers a typed name over the provenance label', () => {
+    const onExport = exportVia({}, () => {
+      container.querySelector<HTMLInputElement>('.setup-name')!.value = 'Tuesday ladder';
+    });
+    const [fileName, text] = onExport.mock.calls[0];
+    expect(fileName).toBe('tuesday-ladder.rowalong.json');
+    expect(JSON.parse(text).name).toBe('Tuesday ladder');
+  });
+
+  it('uses the generated program name when nothing is typed', () => {
+    const onExport = exportVia();
+    expect(JSON.parse(onExport.mock.calls[0][1]).name).toMatch(/^\d+ min · \w+$/);
+  });
+
+  it('does nothing for an empty workout', () => {
+    const onExport = exportVia({}, () =>
+      container.querySelectorAll<HTMLButtonElement>('.seg-del').forEach((b) => b.click()),
+    );
+    expect(container.querySelectorAll('.seg-row')).toHaveLength(0);
+    expect(onExport).not.toHaveBeenCalled();
+  });
+});
+
+describe('downloadText', () => {
+  it('clicks a hidden download link for a JSON blob, then cleans up', async () => {
+    const create = vi.fn((_b: Blob) => 'blob:spec');
+    const revoke = vi.fn();
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }));
+    let clicked: HTMLAnchorElement | null = null;
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        clicked = this;
+      });
+
+    downloadText(document, 'quick-20.rowalong.json', '{}');
+
+    expect(create.mock.calls[0][0].type).toBe('application/json');
+    expect(clicked!.download).toBe('quick-20.rowalong.json');
+    expect(clicked!.href).toBe('blob:spec');
+    expect(document.querySelector('a[download]')).toBeNull();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(revoke).toHaveBeenCalledWith('blob:spec');
+
+    click.mockRestore();
+    vi.unstubAllGlobals();
   });
 });
