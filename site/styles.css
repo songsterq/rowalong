@@ -314,23 +314,22 @@ img { display: block; max-width: 100%; }
 .cta p { margin: 0 auto 1.6rem; max-width: 44ch; color: var(--fg-mut); }
 .cta .dl-group { align-items: center; }
 
-/* ---- privacy policy: a quiet two-column ledger, same hairlines as the spec ---- */
-.privacy { padding-block: clamp(2.5rem, 6vw, 4.5rem); scroll-margin-top: 64px; }
+/* ---- privacy policy page: a readable single column of legal prose ---- */
+.legal { padding-block: clamp(2.5rem, 6vw, 4.5rem); max-width: calc(72ch + 2 * var(--pad)); }
+.legal .section-head { margin-bottom: clamp(1.5rem, 3vw, 2.25rem); }
+.legal h1 { margin: 0; font-weight: 700; letter-spacing: -0.02em;
+  font-size: clamp(2rem, 1.4rem + 2.6vw, 3rem); line-height: 1.05; }
 .policy-date { margin: 0.8rem 0 0; font-size: 0.9rem; color: var(--fg-dim); }
-.policy { margin: 0; border-top: 1px solid var(--line); }
-.policy-row {
-  display: grid; gap: 0.4rem 2rem; align-items: baseline;
-  grid-template-columns: 1fr;
-  padding: clamp(1.1rem, 2.5vw, 1.5rem) 0;
-  border-bottom: 1px solid var(--line);
-}
-@media (min-width: 720px) {
-  .policy-row { grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: 2.5rem; }
-}
-.policy dt { font-family: "Saira", sans-serif; font-weight: 600;
-  font-size: 1.08rem; letter-spacing: -0.01em; }
-.policy dd { margin: 0; max-width: 68ch; color: var(--fg-mut); }
-.policy dd b { color: var(--fg); font-weight: 600; }
+.legal h2 { margin: 2.25rem 0 0.6rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+  font-family: "Saira", sans-serif; font-weight: 600; font-size: 1.2rem; letter-spacing: -0.01em; }
+.legal p, .legal li { color: var(--fg-mut); }
+.legal p { margin: 0 0 1rem; }
+.legal ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+.legal li { margin-bottom: 0.4rem; }
+.legal b { color: var(--fg); font-weight: 600; }
+.legal a { color: var(--accent-ink); text-underline-offset: 3px; }
+.legal code { font-size: 0.9em; padding: 0.1em 0.35em; border-radius: 4px; background: var(--bg-2); color: var(--fg); }
+.legal-summary { padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); }
 
 /* ---- footer ---- */
 .site-footer { border-top: 1px solid var(--line); padding-block: 2.5rem 3rem; }
