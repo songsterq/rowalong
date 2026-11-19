@@ -137,6 +137,85 @@ describe('setup view', () => {
   });
 });
 
+describe('setup view templates list with untrusted names', () => {
+  // Template names (and, once imports land, ids) can come from a shared file, so
+  // they must render as text and never as markup.
+  const HOSTILE_NAME = '<img src=x onerror=alert(1)>';
+  const HOSTILE_ID = 'tpl" onmouseover="alert(1)<b>';
+  const hostileTemplate = () => ({
+    id: HOSTILE_ID,
+    name: HOSTILE_NAME,
+    segments: [
+      { id: 'h-1', intensity: 'easy' as const, durationSec: 60 },
+      { id: 'h-2', intensity: 'hard' as const, durationSec: 120 },
+    ],
+  });
+  const hostileRow = () =>
+    Array.from(container.querySelectorAll<HTMLElement>('.setup-tpl')).find(
+      (row) => row.dataset.id === HOSTILE_ID,
+    );
+
+  it('shows a name containing HTML as literal text, creating no elements', () => {
+    storage.saveTemplate(hostileTemplate());
+    mountSetup(container, { storage, onStart: () => {} });
+    const list = container.querySelector('.setup-tpl-list')!;
+    expect(list.querySelector('img')).toBeNull();
+    expect(list.querySelector('b')).toBeNull();
+    const row = hostileRow();
+    expect(row).toBeDefined();
+    expect(row!.querySelector('.t-name')!.textContent).toBe(HOSTILE_NAME);
+  });
+
+  it('keeps a hostile id inside its data-id attributes', () => {
+    storage.saveTemplate(hostileTemplate());
+    mountSetup(container, { storage, onStart: () => {} });
+    const row = hostileRow()!;
+    for (const el of [row, row.querySelector('.setup-load')!, row.querySelector('.setup-del')!]) {
+      expect(el.getAttribute('onmouseover')).toBeNull();
+      expect((el as HTMLElement).dataset.id).toBe(HOSTILE_ID);
+    }
+  });
+
+  it('Load still finds the template by its escaped id', () => {
+    storage.saveTemplate(hostileTemplate());
+    let name = '';
+    let segments: Segment[] = [];
+    mountSetup(container, {
+      storage,
+      onStart: (s: Segment[], programName: string) => {
+        segments = s;
+        name = programName;
+      },
+    });
+    hostileRow()!.querySelector<HTMLButtonElement>('.setup-load')!.click();
+    expect(container.querySelectorAll('.seg-row')).toHaveLength(2);
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(name).toBe(HOSTILE_NAME);
+    expect(segments.map((s) => [s.intensity, s.durationSec])).toEqual([
+      ['easy', 60],
+      ['hard', 120],
+    ]);
+  });
+
+  it('Delete still removes the template by its escaped id', () => {
+    storage.saveTemplate(hostileTemplate());
+    mountSetup(container, { storage, onStart: () => {} });
+    hostileRow()!.querySelector<HTMLButtonElement>('.setup-del')!.click();
+    expect(storage.listTemplates()).toHaveLength(0);
+    expect(hostileRow()).toBeUndefined();
+  });
+
+  it('shows a name containing HTML typed into Save as literal text', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    (container.querySelector('.setup-name') as HTMLInputElement).value = HOSTILE_NAME;
+    (container.querySelector('.setup-save') as HTMLButtonElement).click();
+    const list = container.querySelector('.setup-tpl-list')!;
+    expect(list.querySelector('img')).toBeNull();
+    const names = Array.from(list.querySelectorAll('.t-name')).map((n) => n.textContent);
+    expect(names).toContain(HOSTILE_NAME);
+  });
+});
+
 describe('summarize', () => {
   it('totals duration, counts blocks, and counts work blocks', () => {
     const s = summarize([

@@ -296,6 +296,21 @@ describe('status line (spm + coming up)', () => {
     mountOverlay(document, engine as never, { density: 'coach' });
     expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
   });
+
+  it('renders segment labels containing HTML as plain text, never markup', () => {
+    // Labels can come from an imported file, so they must only ever reach the DOM as text.
+    const hostile = '<img src=x onerror=alert(1)>';
+    const segments: Segment[] = [
+      { id: 'a', intensity: 'easy', durationSec: 60 },
+      { id: 'b', intensity: 'hard', durationSec: 60, label: hostile },
+      { id: 'c', intensity: 'allout', durationSec: 30, label: `next ${hostile}` },
+    ];
+    const engine = fakeEngine({ ...runningState, segment: segments[1], totalSegments: 3 });
+    mountOverlay(document, engine as never, { density: 'coach', segments });
+    expect(document.querySelector('.ov-root img')).toBeNull();
+    expect(document.querySelector('.ov-label')?.textContent).toBe(hostile);
+    expect(document.querySelector('.ov-spm')?.textContent).toBe(`28 spm · next: next ${hostile}`);
+  });
 });
 
 describe('window-hug resize reporting (onResize)', () => {

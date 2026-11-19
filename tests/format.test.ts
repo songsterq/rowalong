@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatClock, timelineGradient } from '../src/ui/format';
+import { escapeHtml, formatClock, timelineGradient } from '../src/ui/format';
 import { INTENSITY_META, Segment } from '../src/core/types';
 
 const seg = (intensity: Segment['intensity'], durationSec: number): Segment => ({
@@ -46,5 +46,32 @@ describe('timelineGradient', () => {
     const g = timelineGradient([seg('easy', 245), seg('medium', 10), seg('easy', 245)], 2);
     // medium spans 49..51; inner = min(2, 1) = 1 -> stops at 50.00% and 50.00%.
     expect(g).toContain(`${INTENSITY_META.medium.color} 50.00%`);
+  });
+});
+
+describe('escapeHtml', () => {
+  it('leaves plain text untouched', () => {
+    expect(escapeHtml('Quick 20 · steps')).toBe('Quick 20 · steps');
+    expect(escapeHtml('')).toBe('');
+  });
+
+  it('escapes the characters that open markup or close a double-quoted attribute', () => {
+    expect(escapeHtml('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;');
+    expect(escapeHtml('a "quoted" name')).toBe('a &quot;quoted&quot; name');
+    expect(escapeHtml('Tom & Jerry')).toBe('Tom &amp; Jerry');
+  });
+
+  it('escapes & first, so an already-escaped entity survives as literal text', () => {
+    expect(escapeHtml('&lt;b&gt;')).toBe('&amp;lt;b&amp;gt;');
+  });
+
+  it('round-trips through innerHTML as the original text, including inside an attribute', () => {
+    const hostile = '"><img src=x onerror=alert(1)> & co';
+    const div = document.createElement('div');
+    div.innerHTML = `<span data-id="${escapeHtml(hostile)}">${escapeHtml(hostile)}</span>`;
+    const span = div.querySelector('span')!;
+    expect(div.querySelector('img')).toBeNull();
+    expect(span.textContent).toBe(hostile);
+    expect(span.dataset.id).toBe(hostile);
   });
 });

@@ -26,6 +26,15 @@ describe('segment editor', () => {
     expect(read.map((s) => s.durationSec)).toEqual([45, 30]);
   });
 
+  it('keeps a hostile segment id inside its data-id attribute and reads it back intact', () => {
+    const hostile = 'x" onmouseover="alert(1)"><img src=x>';
+    renderEditor(container, [{ id: hostile, intensity: 'easy', durationSec: 30 }]);
+    const row = container.querySelector<HTMLElement>('.seg-row')!;
+    expect(container.querySelector('img')).toBeNull();
+    expect(row.getAttribute('onmouseover')).toBeNull();
+    expect(readEditor(container)[0].id).toBe(hostile);
+  });
+
   it('reflects an edited duration on read-back', () => {
     renderEditor(container, segs);
     const input = container.querySelector<HTMLInputElement>('.seg-row .seg-dur')!;

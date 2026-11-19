@@ -1,5 +1,5 @@
 import { Intensity, Segment, makeId, INTENSITY_META } from '../core/types';
-import { formatClock } from './format';
+import { escapeHtml, formatClock } from './format';
 
 const INTENSITIES: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
 
@@ -15,7 +15,7 @@ function rowHtml(seg: Segment): string {
       `<option value="${i}" ${i === seg.intensity ? 'selected' : ''}>${INTENSITY_META[i].label}</option>`,
   ).join('');
   return `
-    <div class="seg-row" data-id="${seg.id}" style="--c:${meta.color}">
+    <div class="seg-row" data-id="${escapeHtml(seg.id)}" style="--c:${meta.color}">
       <span class="seg-handle" aria-hidden="true">⠿</span>
       <span class="seg-kind">
         <span class="seg-dot"></span>

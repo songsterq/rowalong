@@ -4,7 +4,7 @@ import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
 import { PushStyle, PUSH_STYLES } from '../core/pushStyles';
 import { starterTemplates } from '../core/starters';
 import { renderEditor, readEditor } from './segmentEditor';
-import { formatClock, timelineGradient } from './format';
+import { escapeHtml, formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
 import { renderHistory } from './historyPanel';
 
@@ -249,13 +249,15 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
         const swatches = INTENSITY_ORDER.filter((i) => t.segments.some((seg) => seg.intensity === i))
           .map((i) => `<i style="background:${INTENSITY_META[i].color}"></i>`)
           .join('');
-        return `<div class="setup-tpl" data-id="${t.id}">
-             <button class="setup-load" data-id="${t.id}">
-               <span class="t-name">${t.name}</span>
+        // Names and ids can come from a shared file, so escape them before they hit innerHTML.
+        const id = escapeHtml(t.id);
+        return `<div class="setup-tpl" data-id="${id}">
+             <button class="setup-load" data-id="${id}">
+               <span class="t-name">${escapeHtml(t.name)}</span>
                <span class="t-meta">${formatClock(s.totalSec)} · ${s.blocks} block${s.blocks === 1 ? '' : 's'}</span>
              </button>
              <span class="t-swatches">${swatches}</span>
-             <button class="setup-del icon-btn" data-id="${t.id}" title="Delete" aria-label="Delete">✕</button>
+             <button class="setup-del icon-btn" data-id="${id}" title="Delete" aria-label="Delete">✕</button>
            </div>`;
       })
       .join('');
