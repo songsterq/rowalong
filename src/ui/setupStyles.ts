@@ -223,8 +223,10 @@ export const SETUP_CSS = `
 
   /* ---------- export menu + confirmation toast ---------- */
   /* One menu, shared by the builder's Export button and every template row; it is
-     position: fixed and placed under whichever control opened it. */
-  .setup .setup-export-menu { position: fixed; z-index: 60; min-width: 184px; display: flex;
+     position: fixed and placed under whichever control opened it. It sits above the
+     toast, and the toast lets clicks through: the confirmation from one export is
+     still up when the menu is reopened for the next, and can land on top of it. */
+  .setup .setup-export-menu { position: fixed; z-index: 61; min-width: 184px; display: flex;
     flex-direction: column; gap: 2px; padding: 5px; background: var(--surface-2);
     border: 1px solid var(--border); border-radius: 12px;
     box-shadow: 0 14px 34px oklch(0 0 0 / 0.45), 0 1px 0 oklch(1 0 0 / 0.05) inset; }
@@ -237,6 +239,7 @@ export const SETUP_CSS = `
   .setup .setup-export-menu svg { width: 15px; height: 15px; flex: none; stroke: var(--dim);
     stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
   .setup .setup-toast { position: fixed; left: 50%; bottom: 100px; z-index: 60; transform: translateX(-50%);
+    pointer-events: none;
     max-width: min(520px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 11px;
     font-size: 13px; font-weight: 600; color: var(--text); background: var(--surface-2);
     border: 1px solid var(--border); box-shadow: 0 10px 30px oklch(0 0 0 / 0.4);

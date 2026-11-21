@@ -703,6 +703,20 @@ describe('setup view export', () => {
     expect(toast().hidden).toBe(true);
   });
 
+  it('keeps the confirmation from covering the menu or taking its clicks', () => {
+    // The toast stays up for a few seconds after Download. In the Electron window the
+    // menu reopened in that time landed under it, so Copy as text never got the click.
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    choose('download');
+    exportBtn().click();
+    expect(toast().hidden).toBe(false);
+    expect(menu().hidden).toBe(false);
+    const toastStyle = getComputedStyle(toast());
+    expect(toastStyle.pointerEvents).toBe('none');
+    expect(Number(getComputedStyle(menu()).zIndex)).toBeGreaterThan(Number(toastStyle.zIndex));
+  });
+
   it('puts an export icon on every Templates row, starters included', () => {
     storage.saveTemplate({
       id: 'mine',
