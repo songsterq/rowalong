@@ -172,6 +172,8 @@ export const SETUP_CSS = `
     transition: color .15s, background .15s; }
   .setup .icon-btn:hover { background: oklch(1 0 0 / 0.06); color: var(--text); }
   .setup .icon-btn.del:hover, .setup .seg-del:hover { color: #ff4d4f; background: oklch(0.6 0.2 25 / 0.15); }
+  .setup .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.8; fill: none;
+    stroke-linecap: round; stroke-linejoin: round; }
 
   /* save row */
   .setup .save-row { display: flex; gap: 10px; margin-top: 16px; padding-top: 16px;
@@ -216,6 +218,33 @@ export const SETUP_CSS = `
   .setup .setup-tpl .t-swatches { display: flex; gap: 3px; }
   .setup .setup-tpl .t-swatches i { width: 5px; height: 16px; border-radius: 2px; opacity: 0.85; }
   .setup .setup-tpl .setup-del { color: var(--mute); }
+  .setup .setup-tpl .setup-tpl-export { color: var(--mute); }
+  .setup .setup-tpl .setup-tpl-export[aria-expanded="true"] { color: var(--text); background: oklch(1 0 0 / 0.06); }
+
+  /* ---------- export menu + confirmation toast ---------- */
+  /* One menu, shared by the builder's Export button and every template row; it is
+     position: fixed and placed under whichever control opened it. */
+  .setup .setup-export-menu { position: fixed; z-index: 60; min-width: 184px; display: flex;
+    flex-direction: column; gap: 2px; padding: 5px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 14px 34px oklch(0 0 0 / 0.45), 0 1px 0 oklch(1 0 0 / 0.05) inset; }
+  .setup .setup-export-menu[hidden], .setup .setup-toast[hidden] { display: none; }
+  .setup .setup-export-menu button { font: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 0; border-radius: 8px;
+    background: transparent; cursor: pointer; text-align: left; white-space: nowrap; }
+  .setup .setup-export-menu button:hover, .setup .setup-export-menu button:focus-visible {
+    background: oklch(1 0 0 / 0.07); outline: none; }
+  .setup .setup-export-menu svg { width: 15px; height: 15px; flex: none; stroke: var(--dim);
+    stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .setup .setup-toast { position: fixed; left: 50%; bottom: 100px; z-index: 60; transform: translateX(-50%);
+    max-width: min(520px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 11px;
+    font-size: 13px; font-weight: 600; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); box-shadow: 0 10px 30px oklch(0 0 0 / 0.4);
+    overflow-wrap: anywhere; animation: setup-toast-in .22s var(--ease); }
+  .setup .setup-toast[data-kind="error"] { border-color: oklch(0.6 0.2 25 / 0.6);
+    background: color-mix(in oklab, oklch(0.6 0.2 25) 18%, var(--surface-2)); }
+  @keyframes setup-toast-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+  @media (prefers-reduced-motion: reduce) { .setup .setup-toast { animation: none; } }
 
   /* ---------- preferences ---------- */
   .setup .pref { display: flex; flex-direction: column; gap: 16px; }

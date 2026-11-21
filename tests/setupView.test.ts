@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mountSetup, summarize } from '../src/ui/setupView';
 import { readEditor } from '../src/ui/segmentEditor';
 import { Storage, type KeyValueStore } from '../src/core/storage';
 import { exportWorkout, parseWorkout, SHARE_LIMITS } from '../src/core/shareFormat';
+import { starterTemplates } from '../src/core/starters';
 import type { Segment, SessionRecord } from '../src/core/types';
 
 class Mem implements KeyValueStore {
@@ -502,5 +503,289 @@ describe('setup view history panel', () => {
     storage.recordSession(sess('h2', 'Later workout'));
     setup.refreshHistory();
     expect(container.querySelectorAll('.hist-item')).toHaveLength(1);
+  });
+});
+
+describe('setup view export', () => {
+  let blobs: Map<string, Blob>;
+  let downloads: { href: string; download: string }[];
+  let writeText: ReturnType<typeof vi.fn>;
+
+  const setClipboard = (clipboard: unknown) =>
+    Object.defineProperty(navigator, 'clipboard', { value: clipboard, configurable: true });
+
+  beforeEach(() => {
+    blobs = new Map();
+    downloads = [];
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      const url = `blob:test/${blobs.size + 1}`;
+      blobs.set(url, b);
+      return url;
+    });
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloads.push({ href: this.href, download: this.download });
+    });
+    writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard({ writeText });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    delete (navigator as { clipboard?: unknown }).clipboard;
+  });
+
+  const exportBtn = () => container.querySelector<HTMLButtonElement>('.setup-export')!;
+  const menu = () => container.querySelector<HTMLElement>('.setup-export-menu')!;
+  const toast = () => container.querySelector<HTMLElement>('.setup-toast')!;
+  const nameEl = () => container.querySelector<HTMLInputElement>('.setup-name')!;
+  const tplRow = (name: string) =>
+    Array.from(container.querySelectorAll<HTMLElement>('.setup-tpl')).find(
+      (el) => el.querySelector('.t-name')!.textContent === name,
+    )!;
+  const choose = (action: 'download' | 'copy') =>
+    container.querySelector<HTMLButtonElement>(`.setup-export-${action}`)!.click();
+  const lastDownload = async () => {
+    expect(downloads).toHaveLength(1);
+    const { href, download } = downloads[0];
+    return { fileName: download, text: await blobs.get(href)!.text() };
+  };
+  const shape = (segments: { intensity: string; durationSec: number; label?: string }[]) =>
+    segments.map(({ intensity, durationSec, label }) => ({ intensity, durationSec, label }));
+
+  it('puts an Export control next to Save', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const save = container.querySelector('.setup-save')!;
+    expect(save.nextElementSibling).toBe(exportBtn());
+    expect(exportBtn().textContent).toContain('Export');
+  });
+
+  it('opens and closes a menu offering Download and Copy', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    expect(menu().hidden).toBe(true);
+    exportBtn().click();
+    expect(menu().hidden).toBe(false);
+    expect(exportBtn().getAttribute('aria-expanded')).toBe('true');
+    expect(menu().textContent).toContain('Download');
+    expect(menu().textContent).toContain('Copy');
+    exportBtn().click();
+    expect(menu().hidden).toBe(true);
+    expect(exportBtn().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes the menu on Escape and on a click elsewhere', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(menu().hidden).toBe(true);
+    exportBtn().click();
+    container.querySelector('h1')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(menu().hidden).toBe(true);
+  });
+
+  it('keeps the menu open while the page scrolls', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    document.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+    expect(menu().hidden).toBe(false);
+  });
+
+  it('closes the menu when the Templates list is redrawn under it', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    tplRow('Quick 20').querySelector<HTMLButtonElement>('.setup-tpl-export')!.click();
+    expect(menu().hidden).toBe(false);
+    container.querySelector<HTMLButtonElement>('.setup-save')!.click();
+    expect(menu().hidden).toBe(true);
+  });
+
+  it('downloads the builder workout as <name>.json, named from the name field', async () => {
+    let started: Segment[] = [];
+    mountSetup(container, { storage, onStart: (s) => (started = s) });
+    nameEl().value = '  Tuesday pyramid ';
+    exportBtn().click();
+    choose('download');
+
+    const { fileName, text } = await lastDownload();
+    expect(fileName).toBe('Tuesday pyramid.json');
+    const payload = JSON.parse(text);
+    expect(payload).toMatchObject({ format: 'rowalong-workout', version: 1, name: 'Tuesday pyramid' });
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(started.length).toBeGreaterThan(0);
+    expect(shape(payload.segments)).toEqual(shape(started));
+    expect(menu().hidden).toBe(true);
+    expect(toast().hidden).toBe(false);
+    expect(toast().textContent).toContain('Tuesday pyramid.json');
+  });
+
+  it('falls back to the program name when the name field is empty', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    tplRow('Short sprints').querySelector<HTMLButtonElement>('.setup-load')!.click();
+    exportBtn().click();
+    choose('download');
+    const { fileName, text } = await lastDownload();
+    expect(fileName).toBe('Short sprints.json');
+    expect(JSON.parse(text).name).toBe('Short sprints');
+  });
+
+  it('names a freshly generated workout after its program', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    choose('download');
+    const { fileName } = await lastDownload();
+    expect(fileName).toMatch(/^\d+ min · \w+\.json$/);
+  });
+
+  it('copies the same text it downloads, and confirms', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    nameEl().value = 'Copy me';
+    exportBtn().click();
+    choose('download');
+    const { text } = await lastDownload();
+
+    exportBtn().click();
+    choose('copy');
+    await vi.waitFor(() => expect(toast().textContent).toContain('Copied'));
+    expect(writeText).toHaveBeenCalledWith(text);
+    expect(toast().textContent).toContain('Copy me');
+    expect(toast().dataset.kind).toBe('ok');
+  });
+
+  it('shows a message when copying fails', async () => {
+    writeText.mockRejectedValue(new DOMException('Denied', 'NotAllowedError'));
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    choose('copy');
+    await vi.waitFor(() => expect(toast().dataset.kind).toBe('error'));
+    expect(toast().hidden).toBe(false);
+    expect(toast().textContent).toMatch(/couldn’t copy/i);
+  });
+
+  it('shows a message when there is no clipboard to copy to', async () => {
+    setClipboard(undefined);
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    choose('copy');
+    await vi.waitFor(() => expect(toast().dataset.kind).toBe('error'));
+    expect(toast().textContent).toMatch(/couldn’t copy/i);
+  });
+
+  it('hides the confirmation after a moment', async () => {
+    vi.useFakeTimers();
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    choose('download');
+    expect(toast().hidden).toBe(false);
+    vi.advanceTimersByTime(5_000);
+    expect(toast().hidden).toBe(true);
+  });
+
+  it('puts an export icon on every Templates row, starters included', () => {
+    storage.saveTemplate({
+      id: 'mine',
+      name: 'Mine',
+      segments: [{ id: 's', intensity: 'hard', durationSec: 60 }],
+    });
+    mountSetup(container, { storage, onStart: () => {} });
+    const rows = container.querySelectorAll('.setup-tpl');
+    expect(rows.length).toBeGreaterThan(2);
+    rows.forEach((row) => {
+      const btn = row.querySelector<HTMLButtonElement>('.setup-tpl-export');
+      expect(btn).not.toBeNull();
+      expect(btn!.getAttribute('aria-label')).toMatch(/export/i);
+    });
+  });
+
+  it('exports a starter template from its row', async () => {
+    const [quick20] = starterTemplates();
+    mountSetup(container, { storage, onStart: () => {} });
+    nameEl().value = 'Ignored for templates';
+    tplRow('Quick 20').querySelector<HTMLButtonElement>('.setup-tpl-export')!.click();
+    expect(menu().hidden).toBe(false);
+    choose('download');
+    const { fileName, text } = await lastDownload();
+    expect(fileName).toBe('Quick 20.json');
+    const parsed = parseWorkout(text);
+    expect(parsed.ok && parsed.workout.name).toBe('Quick 20');
+    expect(parsed.ok && shape(parsed.workout.segments)).toEqual(shape(quick20.segments));
+
+    tplRow('Quick 20').querySelector<HTMLButtonElement>('.setup-tpl-export')!.click();
+    choose('copy');
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(text));
+  });
+
+  it('keeps segment labels when exporting a saved template', async () => {
+    storage.saveTemplate({
+      id: 'lab',
+      name: 'Labelled',
+      segments: [
+        { id: 'a', intensity: 'easy', durationSec: 120, label: 'Warm up' },
+        { id: 'b', intensity: 'allout', durationSec: 30 },
+      ],
+    });
+    mountSetup(container, { storage, onStart: () => {} });
+    tplRow('Labelled').querySelector<HTMLButtonElement>('.setup-tpl-export')!.click();
+    choose('download');
+    const { text } = await lastDownload();
+    expect(JSON.parse(text).segments).toEqual([
+      { intensity: 'easy', durationSec: 120, label: 'Warm up' },
+      { intensity: 'allout', durationSec: 30 },
+    ]);
+  });
+
+  it('shows a template name containing HTML as plain text in the confirmation', async () => {
+    const hostile = '<img src=x onerror=alert(1)>';
+    storage.saveTemplate({
+      id: 'h',
+      name: hostile,
+      segments: [{ id: 's', intensity: 'hard', durationSec: 60 }],
+    });
+    mountSetup(container, { storage, onStart: () => {} });
+    tplRow(hostile).querySelector<HTMLButtonElement>('.setup-tpl-export')!.click();
+    choose('copy');
+    await vi.waitFor(() => expect(toast().textContent).toContain(hostile));
+    expect(toast().querySelector('img')).toBeNull();
+  });
+
+  it('refuses to export a workout that would not import, and says why', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const dur = container.querySelector<HTMLInputElement>('.seg-dur')!;
+    dur.value = '7';
+    exportBtn().click();
+    choose('download');
+    expect(downloads).toHaveLength(0);
+    expect(toast().dataset.kind).toBe('error');
+    expect(toast().textContent).toMatch(/can’t export/i);
+    expect(toast().textContent).toContain('multiple of 5');
+
+    exportBtn().click();
+    choose('copy');
+    await Promise.resolve();
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('refuses to export an empty builder', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    container.querySelectorAll<HTMLButtonElement>('.seg-del').forEach((b) => b.click());
+    exportBtn().click();
+    choose('download');
+    expect(downloads).toHaveLength(0);
+    expect(toast().dataset.kind).toBe('error');
+  });
+
+  it('writes nothing to storage', async () => {
+    const mem = new Mem();
+    storage = new Storage(mem);
+    mountSetup(container, { storage, onStart: () => {} });
+    const before = new Map(mem.m);
+    exportBtn().click();
+    choose('download');
+    tplRow('Quick 20').querySelector<HTMLButtonElement>('.setup-tpl-export')!.click();
+    choose('copy');
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(mem.m).toEqual(before);
   });
 });

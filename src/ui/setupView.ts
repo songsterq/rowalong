@@ -8,6 +8,7 @@ import { renderEditor, readEditor } from './segmentEditor';
 import { escapeHtml, formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
 import { renderHistory } from './historyPanel';
+import { mountExportMenu } from './exportMenu';
 
 const titleCase = (s: string) => s[0].toUpperCase() + s.slice(1);
 const INTENSITY_ORDER: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
@@ -47,6 +48,8 @@ const ICON = {
     '<svg viewBox="0 0 24 24"><path d="M2 9c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0M2 15c2.3-2.5 4.6-2.5 6.9 0s4.6 2.5 6.9 0 4.6-2.5 6.2 0"/></svg>',
   generate: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg>',
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
+  export:
+    '<svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   import: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
@@ -139,6 +142,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
             <div class="save-row">
               <input class="setup-name" type="text" placeholder="Name this session to save it as a template" />
               <button class="btn setup-save">${ICON.save} Save</button>
+              <button class="btn setup-export" aria-haspopup="true" aria-expanded="false" aria-controls="setup-export-menu">${ICON.export} Export</button>
             </div>
 
             <details class="import">
@@ -230,6 +234,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   const importText = container.querySelector('.setup-import-text') as HTMLTextAreaElement;
   const importFile = container.querySelector('.setup-import-file') as HTMLInputElement;
   const importMsg = container.querySelector('.setup-import-msg') as HTMLElement;
+  const exportMenu = mountExportMenu(container.querySelector('.setup') as HTMLElement);
   // Provenance label for the workout currently in the editor: where it came from,
   // not what it now contains, so it survives manual block edits.
   let programName = '';
@@ -265,6 +270,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
 
   const renderTemplates = () => {
     const list = container.querySelector('.setup-tpl-list') as HTMLElement;
+    exportMenu.close(); // its anchor may be one of the rows about to be replaced
     const templates = [...starterTemplates(), ...opts.storage.listTemplates()];
     list.innerHTML = templates
       .map((t) => {
@@ -280,6 +286,7 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
                <span class="t-meta">${formatClock(s.totalSec)} · ${s.blocks} block${s.blocks === 1 ? '' : 's'}</span>
              </button>
              <span class="t-swatches">${swatches}</span>
+             <button class="setup-tpl-export icon-btn" data-id="${id}" title="Export" aria-label="Export ${escapeHtml(t.name)}" aria-haspopup="true" aria-expanded="false" aria-controls="setup-export-menu">${ICON.export}</button>
              <button class="setup-del icon-btn" data-id="${id}" title="Delete" aria-label="Delete">✕</button>
            </div>`;
       })
@@ -288,6 +295,12 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
       b.addEventListener('click', () => {
         const t = templates.find((x) => x.id === b.dataset.id);
         if (t) renderWorkout(t.segments.map((s) => ({ ...s, id: makeId() })), t.name);
+      }),
+    );
+    list.querySelectorAll<HTMLButtonElement>('.setup-tpl-export').forEach((b) =>
+      b.addEventListener('click', () => {
+        const t = templates.find((x) => x.id === b.dataset.id);
+        if (t) exportMenu.toggle(b, () => ({ name: t.name, segments: t.segments }));
       }),
     );
     list.querySelectorAll<HTMLButtonElement>('.setup-del').forEach((b) =>
@@ -331,6 +344,16 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     nameEl.value = '';
     renderTemplates();
   });
+
+  // Export the builder as it stands when an action is picked: named from the name
+  // field, else from where the workout came from (a template, a generation, history).
+  const exportBtn = container.querySelector('.setup-export') as HTMLButtonElement;
+  exportBtn.addEventListener('click', () =>
+    exportMenu.toggle(exportBtn, () => ({
+      name: nameEl.value.trim() || programName || 'Workout',
+      segments: readEditor(editor),
+    })),
+  );
 
   // Import: a shared workout replaces what's in the builder, name and all, but is
   // never saved; Save above keeps it as a template if the user wants it. Bad input
