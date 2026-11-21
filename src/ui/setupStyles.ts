@@ -162,7 +162,10 @@ export const SETUP_CSS = `
     padding: 7px 8px; font-variant-numeric: tabular-nums; }
   .setup .seg-unit { color: var(--mute); font-size: 12px; }
   .setup .seg-mmss { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 36px; }
-  .setup .seg-spm { margin-left: auto; font-size: 11.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
+  /* an imported segment's label; shrinks to an ellipsis before the spm hint does */
+  .setup .seg-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 600; color: var(--dim); }
+  .setup .seg-spm { margin-left: auto; flex: none; font-size: 11.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
   .setup .seg-actions { display: flex; gap: 2px; }
   .setup .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border: 0;
     background: transparent; color: var(--mute); cursor: pointer; border-radius: 8px; font-size: 13px;

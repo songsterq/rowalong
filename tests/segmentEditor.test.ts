@@ -74,6 +74,69 @@ describe('segment editor', () => {
     expect(calls).toBe(4);
   });
 
+  describe('segment labels', () => {
+    it('carries a label through render → read, and adds no label key where there is none', () => {
+      renderEditor(container, [
+        { id: 'a', intensity: 'hard', durationSec: 45, label: 'Sprint' },
+        { id: 'b', intensity: 'easy', durationSec: 30 },
+      ]);
+      const read = readEditor(container);
+      expect(read[0]).toEqual({ id: 'a', intensity: 'hard', durationSec: 45, label: 'Sprint' });
+      expect(read[1]).toEqual({ id: 'b', intensity: 'easy', durationSec: 30 });
+      expect('label' in read[1]).toBe(false);
+    });
+
+    it('round-trips labels exactly, including quotes, ampersands, newlines and an empty label', () => {
+      const labels = ['say "hi" & <go>', 'line\r\none\ttab', '', "it's"];
+      renderEditor(
+        container,
+        labels.map((label, i) => ({ id: `s${i}`, intensity: 'medium', durationSec: 60, label })),
+      );
+      expect(readEditor(container).map((s) => s.label)).toEqual(labels);
+    });
+
+    it('shows the label on its row as plain text, never as markup', () => {
+      const hostile = '<img src=x onerror=alert(1)><b>bold</b>';
+      renderEditor(container, [{ id: 'a', intensity: 'hard', durationSec: 45, label: hostile }]);
+      const row = container.querySelector('.seg-row')!;
+      expect(row.querySelector('img')).toBeNull();
+      expect(row.querySelector('b')).toBeNull();
+      expect(row.querySelector('.seg-label')!.textContent).toBe(hostile);
+    });
+
+    it('shows no label element on a row without a label', () => {
+      renderEditor(container, [{ id: 'a', intensity: 'hard', durationSec: 45 }]);
+      const label = container.querySelector<HTMLElement>('.seg-row .seg-label');
+      expect(label === null || label.hidden).toBe(true);
+    });
+
+    it('keeps the label through reorder, intensity and duration edits', () => {
+      renderEditor(container, [
+        { id: 'a', intensity: 'hard', durationSec: 45, label: 'Sprint' },
+        { id: 'b', intensity: 'easy', durationSec: 30, label: 'Float' },
+      ]);
+      container.querySelector<HTMLButtonElement>('.seg-row .seg-down')!.click();
+      const first = container.querySelector('.seg-row')!; // now 'b'
+      const sel = first.querySelector<HTMLSelectElement>('.seg-intensity')!;
+      sel.value = 'allout';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const dur = first.querySelector<HTMLInputElement>('.seg-dur')!;
+      dur.value = '90';
+      dur.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(readEditor(container)).toEqual([
+        { id: 'b', intensity: 'allout', durationSec: 90, label: 'Float' },
+        { id: 'a', intensity: 'hard', durationSec: 45, label: 'Sprint' },
+      ]);
+    });
+
+    it('gives an added row no label', () => {
+      renderEditor(container, [{ id: 'a', intensity: 'hard', durationSec: 45, label: 'Sprint' }]);
+      container.querySelector<HTMLButtonElement>('.seg-add')!.click();
+      const added = readEditor(container)[1];
+      expect('label' in added).toBe(false);
+    });
+  });
+
   describe('drag-to-reorder', () => {
     function ptr(type: string, clientY: number) {
       return new MouseEvent(type, { clientY, button: 0, bubbles: true });

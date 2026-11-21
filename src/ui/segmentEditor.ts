@@ -1,5 +1,5 @@
 import { Intensity, Segment, makeId, INTENSITY_META } from '../core/types';
-import { formatClock } from './format';
+import { escapeHtml, formatClock } from './format';
 
 const INTENSITIES: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
 
@@ -8,6 +8,7 @@ export interface EditorOpts {
   onChange?: () => void;
 }
 
+// The row's markup, minus its label: see buildRow.
 function rowHtml(seg: Segment): string {
   const meta = INTENSITY_META[seg.intensity];
   const opts = INTENSITIES.map(
@@ -15,7 +16,7 @@ function rowHtml(seg: Segment): string {
       `<option value="${i}" ${i === seg.intensity ? 'selected' : ''}>${INTENSITY_META[i].label}</option>`,
   ).join('');
   return `
-    <div class="seg-row" data-id="${seg.id}" style="--c:${meta.color}">
+    <div class="seg-row" data-id="${escapeHtml(seg.id)}" style="--c:${meta.color}">
       <span class="seg-handle" aria-hidden="true">⠿</span>
       <span class="seg-kind">
         <span class="seg-dot"></span>
@@ -26,6 +27,7 @@ function rowHtml(seg: Segment): string {
         <span class="seg-unit">s</span>
         <span class="seg-mmss">${formatClock(seg.durationSec)}</span>
       </span>
+      <span class="seg-label" hidden></span>
       <span class="seg-spm">${meta.spmLabel} spm</span>
       <span class="seg-actions">
         <button class="icon-btn seg-up" title="Move up" aria-label="Move up">↑</button>
@@ -35,22 +37,42 @@ function rowHtml(seg: Segment): string {
     </div>`;
 }
 
+/**
+ * Builds one row. A segment's label rides on the row as `data-label` (read back by
+ * readEditor) and is shown in `.seg-label`. Both are set through the DOM rather than
+ * the HTML string: a label can come from an imported file, so it must never be parsed
+ * as markup, and the HTML parser would also rewrite it (CRs become LFs), breaking an
+ * import → export round trip.
+ */
+function buildRow(doc: Document, seg: Segment): HTMLElement {
+  const tpl = doc.createElement('template');
+  tpl.innerHTML = rowHtml(seg).trim();
+  const row = tpl.content.firstElementChild as HTMLElement;
+  if (seg.label !== undefined) {
+    row.dataset.label = seg.label;
+    const shown = row.querySelector('.seg-label') as HTMLElement;
+    shown.textContent = seg.label;
+    shown.title = seg.label;
+    shown.hidden = seg.label === '';
+  }
+  return row;
+}
+
 export function renderEditor(
   container: HTMLElement,
   segments: Segment[],
   opts: EditorOpts = {},
 ): void {
+  const doc = container.ownerDocument;
   container.innerHTML = `
-    <div class="seg-list">${segments.map(rowHtml).join('')}</div>
+    <div class="seg-list"></div>
     <button class="seg-add">+ Add segment</button>`;
   const list = container.querySelector('.seg-list') as HTMLElement;
+  list.append(...segments.map((seg) => buildRow(doc, seg)));
   const fire = () => opts.onChange?.();
 
   container.querySelector('.seg-add')!.addEventListener('click', () => {
-    list.insertAdjacentHTML(
-      'beforeend',
-      rowHtml({ id: makeId(), intensity: 'easy', durationSec: 30 }),
-    );
+    list.append(buildRow(doc, { id: makeId(), intensity: 'easy', durationSec: 30 }));
     fire();
   });
 
@@ -148,6 +170,9 @@ export function readEditor(container: HTMLElement): Segment[] {
       5,
       Math.round(Number((el.querySelector('.seg-dur') as HTMLInputElement).value) || 0),
     );
-    return { id: el.dataset.id || makeId(), intensity, durationSec };
+    const id = el.dataset.id || makeId();
+    // Only a row that was given a label has data-label; an empty one is still a label.
+    const { label } = el.dataset;
+    return label === undefined ? { id, intensity, durationSec } : { id, intensity, durationSec, label };
   });
 }
