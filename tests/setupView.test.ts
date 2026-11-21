@@ -796,6 +796,21 @@ describe('setup view export', () => {
     expect(toast().dataset.kind).toBe('error');
   });
 
+  it('downloads exactly the payload an import loaded, labels included', async () => {
+    const payload = exportWorkout('Friday pyramid', [
+      { id: 'x', intensity: 'easy', durationSec: 120, label: 'Warm <i>up</i>' },
+      { id: 'y', intensity: 'allout', durationSec: 30 },
+    ]);
+    mountSetup(container, { storage, onStart: () => {} });
+    container.querySelector<HTMLTextAreaElement>('.setup-import-text')!.value = payload;
+    container.querySelector<HTMLButtonElement>('.setup-import-paste')!.click();
+    exportBtn().click();
+    choose('download');
+    const { fileName, text } = await lastDownload();
+    expect(fileName).toBe('Friday pyramid.json');
+    expect(text).toBe(payload);
+  });
+
   it('writes nothing to storage', async () => {
     const mem = new Mem();
     storage = new Storage(mem);
