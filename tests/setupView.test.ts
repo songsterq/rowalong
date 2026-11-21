@@ -137,6 +137,56 @@ describe('setup view', () => {
   });
 });
 
+describe('setup view templates list', () => {
+  const tpl = (id: string, name: string) => ({
+    id,
+    name,
+    segments: [{ id: `${id}-seg`, intensity: 'hard' as const, durationSec: 60 }],
+  });
+  const rowFor = (id: string) =>
+    Array.from(container.querySelectorAll<HTMLElement>('.setup-tpl')).find(
+      (el) => el.dataset.id === id,
+    )!;
+
+  it('renders a template name containing HTML as plain text, not markup', () => {
+    const hostile = '<img src=x onerror=alert(1)><b>bold</b> & "q"';
+    storage.saveTemplate(tpl('t1', hostile));
+    mountSetup(container, { storage, onStart: () => {} });
+    const list = container.querySelector('.setup-tpl-list')!;
+    expect(list.querySelector('img')).toBeNull();
+    expect(list.querySelector('b')).toBeNull();
+    expect(rowFor('t1').querySelector('.t-name')!.textContent).toBe(hostile);
+  });
+
+  it('keeps a hostile template id inside its data-id attribute', () => {
+    const id = 'x" onmouseover="alert(1)';
+    storage.saveTemplate(tpl(id, 'Sneaky'));
+    mountSetup(container, { storage, onStart: () => {} });
+    const row = rowFor(id);
+    expect(row).toBeTruthy();
+    for (const el of [row, row.querySelector('.setup-load')!, row.querySelector('.setup-del')!]) {
+      expect(el.getAttribute('onmouseover')).toBeNull();
+      expect((el as HTMLElement).dataset.id).toBe(id);
+    }
+  });
+
+  it('still loads and deletes a template whose name and id contain HTML', () => {
+    const id = '<i>"t2"</i>';
+    const name = '<script>alert(1)</script>';
+    storage.saveTemplate(tpl(id, name));
+    let started = '';
+    mountSetup(container, { storage, onStart: (_s, programName) => (started = programName) });
+
+    rowFor(id).querySelector<HTMLButtonElement>('.setup-load')!.click();
+    container.querySelector<HTMLButtonElement>('.setup-start')!.click();
+    expect(started).toBe(name);
+
+    rowFor(id).querySelector<HTMLButtonElement>('.setup-del')!.click();
+    expect(storage.listTemplates().some((t) => t.id === id)).toBe(false);
+    expect(container.querySelector('.setup-tpl-list')!.textContent).not.toContain(name);
+  });
+});
+
 describe('summarize', () => {
   it('totals duration, counts blocks, and counts work blocks', () => {
     const s = summarize([

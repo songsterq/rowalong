@@ -1,5 +1,20 @@
 import { INTENSITY_META, Segment } from '../core/types';
 
+/**
+ * Escape a string for interpolation into an innerHTML template, as text content or
+ * as a quoted attribute value. Use it for anything that isn't a constant of ours:
+ * template names and ids, segment labels and session records can all come from
+ * localStorage or an imported file. `&` goes first so the other entities survive.
+ */
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /** Format a whole number of seconds as `m:ss` (e.g. 90 -> '1:30'). */
 export function formatClock(totalSec: number): string {
   const s = Math.max(0, Math.round(totalSec));

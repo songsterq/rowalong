@@ -296,6 +296,23 @@ describe('status line (spm + coming up)', () => {
     mountOverlay(document, engine as never, { density: 'coach' });
     expect(document.querySelector('.ov-spm')?.textContent).toBe('28 spm');
   });
+
+  it('shows segment labels containing HTML as plain text, never markup', () => {
+    // Labels can come from an imported file, so the overlay must set them as text.
+    const current = '<img src=x onerror=alert(1)>Now';
+    const upcoming = '<b>Next</b> & "more"';
+    const segments: Segment[] = [
+      statusSegments[0],
+      { ...statusSegments[1], label: current },
+      { ...statusSegments[2], label: upcoming },
+    ];
+    const engine = fakeEngine({ ...runningState, segment: segments[1] });
+    mountOverlay(document, engine as never, { density: 'coach', segments });
+    const root = document.querySelector('.ov-root')!;
+    expect(root.querySelector('img, b')).toBeNull();
+    expect(document.querySelector('.ov-label')?.textContent).toBe(current);
+    expect(document.querySelector('.ov-spm')?.textContent).toBe(`28 spm · next: ${upcoming}`);
+  });
 });
 
 describe('window-hug resize reporting (onResize)', () => {
