@@ -3,6 +3,7 @@ import { Storage, Density } from '../core/storage';
 import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
 import { PushStyle, PUSH_STYLES } from '../core/pushStyles';
 import { starterTemplates } from '../core/starters';
+import { parseWorkout, SHARE_LIMITS } from '../core/shareFormat';
 import { renderEditor, readEditor } from './segmentEditor';
 import { escapeHtml, formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
@@ -48,7 +49,11 @@ const ICON = {
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  import: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
 };
+
+/** The program name an imported workout runs under when its name is blank. */
+const IMPORTED_PROGRAM_NAME = 'Imported workout';
 
 function injectStyles(doc: Document): void {
   if (doc.getElementById('wh-setup-css')) return;
@@ -135,6 +140,21 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
               <input class="setup-name" type="text" placeholder="Name this session to save it as a template" />
               <button class="btn setup-save">${ICON.save} Save</button>
             </div>
+
+            <details class="import">
+              <summary>Import a workout</summary>
+              <div class="import-body">
+                <textarea class="setup-import-text" rows="3" spellcheck="false"
+                  aria-label="Shared workout text"
+                  placeholder="Paste a shared workout here, or choose its .json file"></textarea>
+                <div class="import-actions">
+                  <button type="button" class="btn setup-import-paste">${ICON.import} Import pasted text</button>
+                  <button type="button" class="btn setup-import-choose">Choose file…</button>
+                  <input class="setup-import-file" type="file" accept=".json,application/json" hidden />
+                </div>
+                <p class="setup-import-msg" aria-live="polite" hidden></p>
+              </div>
+            </details>
           </section>
         </div>
 
@@ -207,6 +227,9 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   const summaryTotal = container.querySelector('.setup-summary-total') as HTMLElement;
   const summarySub = container.querySelector('.setup-summary-sub') as HTMLElement;
   const historyEl = container.querySelector('.setup-history') as HTMLElement;
+  const importText = container.querySelector('.setup-import-text') as HTMLTextAreaElement;
+  const importFile = container.querySelector('.setup-import-file') as HTMLInputElement;
+  const importMsg = container.querySelector('.setup-import-msg') as HTMLElement;
   // Provenance label for the workout currently in the editor: where it came from,
   // not what it now contains, so it survives manual block edits.
   let programName = '';
@@ -307,6 +330,70 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     opts.storage.saveTemplate(tpl);
     nameEl.value = '';
     renderTemplates();
+  });
+
+  // Import: a shared workout replaces what's in the builder, name and all, but is
+  // never saved; Save above keeps it as a template if the user wants it. Bad input
+  // is rejected whole, with the builder left exactly as it was.
+  const showImportMsg = (kind: 'ok' | 'error', text: string) => {
+    importMsg.dataset.kind = kind;
+    importMsg.textContent = text; // names are untrusted: text only, never markup
+    importMsg.hidden = false;
+  };
+  const clearImportMsg = () => {
+    importMsg.hidden = true;
+    importMsg.textContent = '';
+  };
+  /** Validate a share payload and, only if it's good, load it. Returns whether it loaded. */
+  const importWorkout = (text: string): boolean => {
+    const result = parseWorkout(text);
+    if (!result.ok) {
+      showImportMsg('error', result.error);
+      return false;
+    }
+    const { name, segments } = result.workout;
+    nameEl.value = name;
+    renderWorkout(segments, name.trim() || IMPORTED_PROGRAM_NAME);
+    showImportMsg(
+      'ok',
+      `Loaded “${name.trim() || IMPORTED_PROGRAM_NAME}”. Save it to keep it as a template.`,
+    );
+    return true;
+  };
+
+  container.querySelector('.setup-import-paste')!.addEventListener('click', () => {
+    if (!importText.value.trim()) {
+      showImportMsg('error', 'Paste a shared workout into the box first.');
+      return;
+    }
+    if (importWorkout(importText.value)) importText.value = '';
+  });
+  importText.addEventListener('input', clearImportMsg);
+
+  container.querySelector('.setup-import-choose')!.addEventListener('click', () => importFile.click());
+  // Each choice gets a token, so a slow read can't land on top of a later choice.
+  let fileToken = 0;
+  importFile.addEventListener('change', async () => {
+    const file = importFile.files?.[0];
+    importFile.value = ''; // so choosing the same file again still fires change
+    if (!file) return;
+    const token = ++fileToken;
+    // Don't read what parseWorkout would reject for size anyway.
+    if (file.size >= SHARE_LIMITS.maxInputBytes) {
+      showImportMsg(
+        'error',
+        `This file is too large to be a workout: it must be under ${SHARE_LIMITS.maxInputBytes / 1024} KB.`,
+      );
+      return;
+    }
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      if (token === fileToken) showImportMsg('error', 'That file couldn’t be read.');
+      return;
+    }
+    if (token === fileToken) importWorkout(text);
   });
 
   container.querySelector('.setup-density')!.addEventListener('change', (e) => {

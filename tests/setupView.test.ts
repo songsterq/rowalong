@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mountSetup, summarize } from '../src/ui/setupView';
+import { readEditor } from '../src/ui/segmentEditor';
 import { Storage, type KeyValueStore } from '../src/core/storage';
+import { exportWorkout, parseWorkout, SHARE_LIMITS } from '../src/core/shareFormat';
 import type { Segment, SessionRecord } from '../src/core/types';
 
 class Mem implements KeyValueStore {
@@ -17,11 +19,13 @@ class Mem implements KeyValueStore {
 }
 
 let container: HTMLElement;
+let mem: Mem;
 let storage: Storage;
 beforeEach(() => {
   document.body.innerHTML = '<div id="app"></div>';
   container = document.getElementById('app')!;
-  storage = new Storage(new Mem());
+  mem = new Mem();
+  storage = new Storage(mem);
 });
 
 describe('setup view', () => {
@@ -184,6 +188,214 @@ describe('setup view templates list', () => {
     rowFor(id).querySelector<HTMLButtonElement>('.setup-del')!.click();
     expect(storage.listTemplates().some((t) => t.id === id)).toBe(false);
     expect(container.querySelector('.setup-tpl-list')!.textContent).not.toContain(name);
+  });
+});
+
+describe('setup view import', () => {
+  const shared: Segment[] = [
+    { id: 'x1', intensity: 'easy', durationSec: 120, label: 'Warm-up' },
+    { id: 'x2', intensity: 'allout', durationSec: 30 },
+    { id: 'x3', intensity: 'medium', durationSec: 90, label: 'Float' },
+  ];
+  const payload = exportWorkout('Friday pyramid', shared);
+  const withoutIds = (segs: Segment[]) => segs.map(({ id: _id, ...rest }) => rest);
+
+  const q = <T extends Element>(sel: string) => container.querySelector<T>(sel)!;
+  const editorSegments = () => readEditor(q<HTMLElement>('.setup-editor'));
+  const nameField = () => q<HTMLInputElement>('.setup-name');
+  const message = () => q<HTMLElement>('.setup-import-msg');
+  const paste = (text: string) => {
+    q<HTMLTextAreaElement>('.setup-import-text').value = text;
+    q<HTMLButtonElement>('.setup-import-paste').click();
+  };
+  const chooseFile = (file: File) => {
+    const input = q<HTMLInputElement>('.setup-import-file');
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const jsonFile = (text: string) => new File([text], 'workout.json', { type: 'application/json' });
+  /** Start hands over the builder's segments and program name; capture them. */
+  const mountCapturingStart = () => {
+    const started: { segments: Segment[]; programName: string }[] = [];
+    mountSetup(container, {
+      storage,
+      onStart: (segments, programName) => started.push({ segments, programName }),
+    });
+    return () => {
+      q<HTMLButtonElement>('.setup-start').click();
+      return started[started.length - 1];
+    };
+  };
+
+  it('offers a file input for .json files and a box for pasted text', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const input = q<HTMLInputElement>('.setup-import-file');
+    expect(input.type).toBe('file');
+    expect(input.accept).toContain('.json');
+    expect(q('.setup-import-text').tagName).toBe('TEXTAREA');
+  });
+
+  it('loads pasted text into the builder: same segments and labels, fresh ids, name filled in', () => {
+    const start = mountCapturingStart();
+    paste(payload);
+
+    const segs = editorSegments();
+    expect(withoutIds(segs)).toEqual(withoutIds(shared));
+    expect(new Set(segs.map((s) => s.id)).size).toBe(3);
+    for (const s of segs) expect(['x1', 'x2', 'x3']).not.toContain(s.id);
+    expect(nameField().value).toBe('Friday pyramid');
+    expect(start().programName).toBe('Friday pyramid');
+    expect(message().hidden).toBe(false);
+    expect(message().dataset.kind).toBe('ok');
+  });
+
+  it('round-trips: re-exporting what an import loaded gives back the same payload', () => {
+    const start = mountCapturingStart();
+    paste(payload);
+    const { segments, programName } = start();
+    expect(exportWorkout(programName, segments)).toBe(payload);
+    expect(exportWorkout(nameField().value, editorSegments())).toBe(payload);
+  });
+
+  it('loads a chosen .json file into the builder', async () => {
+    const start = mountCapturingStart();
+    chooseFile(jsonFile(payload));
+    await vi.waitFor(() => expect(nameField().value).toBe('Friday pyramid'));
+    expect(withoutIds(editorSegments())).toEqual(withoutIds(shared));
+    expect(start().programName).toBe('Friday pyramid');
+  });
+
+  it('writes nothing to storage, from a paste or a file', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const before = new Map(mem.m);
+    paste(payload);
+    chooseFile(jsonFile(exportWorkout('Other', shared)));
+    await vi.waitFor(() => expect(nameField().value).toBe('Other'));
+    expect(mem.m).toEqual(before);
+    expect(storage.listTemplates()).toEqual([]);
+  });
+
+  it('clears the paste box after a successful import', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    paste(payload);
+    expect(q<HTMLTextAreaElement>('.setup-import-text').value).toBe('');
+  });
+
+  it('falls back to a generic program name when the imported name is blank', () => {
+    const start = mountCapturingStart();
+    paste(exportWorkout('', shared));
+    expect(nameField().value).toBe('');
+    expect(start().programName).toBe('Imported workout');
+  });
+
+  const tooMany = exportWorkout(
+    'Long',
+    Array.from({ length: SHARE_LIMITS.maxSegments + 1 }, (_, i) => ({
+      id: `s${i}`,
+      intensity: 'easy' as const,
+      durationSec: 5,
+    })),
+  );
+  const bad: [string, string][] = [
+    ['not JSON', '{ nope'],
+    ['not a RowAlong workout', JSON.stringify({ format: 'something-else', version: 1 })],
+    ['a newer version', payload.replace('"version": 1', '"version": 2')],
+    ['an unknown intensity', payload.replace('"allout"', '"turbo"')],
+    ['a duration off the 5-second grid', payload.replace('"durationSec": 30', '"durationSec": 32')],
+    ['too many segments', tooMany],
+    ['a name over 80 characters', exportWorkout('n'.repeat(81), shared)],
+  ];
+
+  it.each(bad)('rejects pasted %s with parseWorkout’s message and leaves the builder as it was', (_, text) => {
+    const start = mountCapturingStart();
+    nameField().value = 'My draft';
+    const before = start();
+    const rowsBefore = editorSegments();
+
+    paste(text);
+
+    const expected = parseWorkout(text);
+    expect(expected.ok).toBe(false);
+    expect(message().hidden).toBe(false);
+    expect(message().dataset.kind).toBe('error');
+    expect(message().textContent).toBe(!expected.ok && expected.error);
+    expect(editorSegments()).toEqual(rowsBefore);
+    expect(nameField().value).toBe('My draft');
+    expect(start()).toEqual(before);
+    // The rejected text stays in the box so it can be fixed.
+    expect(q<HTMLTextAreaElement>('.setup-import-text').value).toBe(text);
+  });
+
+  it('rejects an invalid file with parseWorkout’s message and leaves the builder as it was', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const rowsBefore = editorSegments();
+    const text = payload.replace('"version": 1', '"version": 0');
+    chooseFile(jsonFile(text));
+    await vi.waitFor(() => expect(message().hidden).toBe(false));
+    const expected = parseWorkout(text);
+    expect(message().textContent).toBe(!expected.ok && expected.error);
+    expect(message().dataset.kind).toBe('error');
+    expect(editorSegments()).toEqual(rowsBefore);
+    expect(nameField().value).toBe('');
+  });
+
+  it('rejects a file of 100 KB or more without reading it', async () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const rowsBefore = editorSegments();
+    const file = jsonFile(' '.repeat(SHARE_LIMITS.maxInputBytes));
+    const read = vi.spyOn(file, 'text');
+    chooseFile(file);
+    await vi.waitFor(() => expect(message().hidden).toBe(false));
+    expect(read).not.toHaveBeenCalled();
+    expect(message().dataset.kind).toBe('error');
+    expect(message().textContent).toContain('100 KB');
+    expect(editorSegments()).toEqual(rowsBefore);
+  });
+
+  it('asks for text when Import is pressed on an empty box, and changes nothing', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    const rowsBefore = editorSegments();
+    paste('   ');
+    expect(message().dataset.kind).toBe('error');
+    expect(message().textContent).toMatch(/paste/i);
+    expect(editorSegments()).toEqual(rowsBefore);
+  });
+
+  it('clears a shown error once the pasted text is edited, and on a later good import', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    paste('{ nope');
+    const box = q<HTMLTextAreaElement>('.setup-import-text');
+    box.value = '{ nope }';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(message().hidden).toBe(true);
+
+    paste('{ nope');
+    paste(payload);
+    expect(message().dataset.kind).toBe('ok');
+  });
+
+  it('shows an imported name and labels containing HTML as plain text, never as markup', () => {
+    const name = '<img src=x onerror=alert(1)>';
+    const label = '<b>bold</b> & "q"';
+    mountSetup(container, { storage, onStart: () => {} });
+    paste(exportWorkout(name, [{ id: 'a', intensity: 'hard', durationSec: 60, label }]));
+
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.setup-editor b')).toBeNull();
+    expect(nameField().value).toBe(name);
+    expect(q('.seg-row .seg-label').textContent).toBe(label);
+    expect(message().textContent).toContain(name);
+    expect(message().children).toHaveLength(0);
+  });
+
+  it('after an import, Save stores the workout under its imported name', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    paste(payload);
+    q<HTMLButtonElement>('.setup-save').click();
+    const saved = storage.listTemplates();
+    expect(saved).toHaveLength(1);
+    expect(saved[0].name).toBe('Friday pyramid');
+    expect(withoutIds(saved[0].segments)).toEqual(withoutIds(shared));
   });
 });
 

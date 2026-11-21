@@ -180,6 +180,28 @@ export const SETUP_CSS = `
     background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px; padding: 11px 13px; }
   .setup .setup-name::placeholder { color: var(--mute); }
 
+  /* import: a disclosure under the save row, so it stays out of the way until wanted */
+  .setup .import { margin-top: 12px; }
+  .setup .import > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 0; font-size: 12.5px; font-weight: 650; color: var(--dim); cursor: pointer;
+    transition: color .15s; }
+  .setup .import > summary::-webkit-details-marker { display: none; }
+  .setup .import > summary::before { content: ""; width: 6px; height: 6px;
+    border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+    transform: rotate(-45deg); transition: transform .15s var(--ease); }
+  .setup .import[open] > summary::before { transform: translateY(-2px) rotate(45deg); }
+  .setup .import > summary:hover { color: var(--text); }
+  .setup .import-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .setup .setup-import-text { width: 100%; min-height: 72px; resize: vertical;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
+    background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px; padding: 10px 13px; }
+  .setup .setup-import-text::placeholder { color: var(--mute);
+    font-family: -apple-system, system-ui, "Segoe UI", sans-serif; font-size: 13px; }
+  .setup .import-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .setup .setup-import-msg { margin: 0; font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+  .setup .setup-import-msg[data-kind="error"] { color: #ff7a7c; }
+  .setup .setup-import-msg[data-kind="ok"] { color: #34d399; }
+
   /* ---------- templates ---------- */
   .setup .setup-tpl-list { display: flex; flex-direction: column; gap: 8px; }
   .setup .setup-tpl { display: flex; align-items: center; gap: 8px; background: var(--inset);
