@@ -8,10 +8,11 @@
 //   setAlwaysOnTop(true, 'screen-saver')
 //   setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
 
-const { app, BrowserWindow, ipcMain, screen, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pickStartBounds } = require('./windowBounds.cjs');
+const { contextMenuTemplate } = require('./contextMenu.cjs');
 
 // Let the overlay window play tone cues without a user gesture.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -78,6 +79,13 @@ function createSetupWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
   });
   loadPage(setupWin, 'index');
+  // Electron has no right-click menu of its own: give text fields Cut/Copy/Paste
+  // (pasting a shared workout into the import box) and selected text Copy.
+  const win = setupWin;
+  win.webContents.on('context-menu', (_event, params) => {
+    const template = contextMenuTemplate(params);
+    if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
+  });
   setupWin.on('closed', () => {
     setupWin = null;
   });
