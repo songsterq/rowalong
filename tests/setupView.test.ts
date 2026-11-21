@@ -386,6 +386,12 @@ describe('setup view import', () => {
     expect(q('.seg-row .seg-label').textContent).toBe(label);
     expect(message().textContent).toContain(name);
     expect(message().children).toHaveLength(0);
+
+    // Saved, it shows as plain text in the Templates list too.
+    q<HTMLButtonElement>('.setup-save').click();
+    const names = Array.from(container.querySelectorAll('.setup-tpl .t-name'), (el) => el.textContent);
+    expect(names).toContain(name);
+    expect(container.querySelector('.setup-tpl-list img')).toBeNull();
   });
 
   it('after an import, Save stores the workout under its imported name', () => {
