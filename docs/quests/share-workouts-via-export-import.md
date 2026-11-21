@@ -45,3 +45,27 @@ From the setup page, export the workout in the builder or any template (built-in
 5. **ROW-5 Verify export/import in the Electron app** (after ROW-3, ROW-4). Run npm run electron:dev and check file download (the save dialog), copy, file import (the open dialog) and paste in the setup window. Fix any gaps there, adding preload/main IPC only if a web API actually fails. Record the result in the PR.
 6. **ROW-6 Document the share format** (after ROW-5). Describe the share format and how to export and import a workout in the README. Add shareFormat.ts to the src/core list in AGENTS.md, noting that its validation caps follow the 5-second-unit convention.
 
+
+## ROW-5: Electron check
+
+Checked on 2026-11-20 in the Electron app's setup window (Electron 42.3.3, Chromium 148, macOS). I ran `npm run electron:dev`, and drove the same `electron/app.cjs` from a script with trusted clicks and keys (DevTools Protocol through `webContents.debugger`, plus a real Cmd+V key event). The script ran with its own userData, so no real templates were touched.
+
+Every flow works with plain web APIs, so **no preload or IPC was added**.
+
+| Flow | Result in Electron |
+| --- | --- |
+| Download .json (the builder, and a starter from its Templates row) | Works. The `<a download>` link opens the native macOS Save panel, with `<name>.json` filled in (made file-system safe) and Downloads as the folder. The saved file is the v1 payload, with its name and all its segments. |
+| Copy as text (the builder, and a starter) | Works: `navigator.clipboard.writeText` puts the same text on the system clipboard. Copying right after a download used to miss (fix 2). |
+| Choose file… | Works. The native Open panel opens (the click counts as a user gesture). A chosen export loads its name and identical segments, and exporting again gives byte-identical text. |
+| Paste | Works with Cmd+V and Edit > Paste: Electron's default app menu has the Edit roles. Right-click offered no Paste (fix 1). |
+| Bad input, HTML names, storage | A version-2 paste is rejected with its message and leaves the builder as it was. A name with `<b>` in it stays plain text. Importing writes nothing to localStorage. |
+
+Fixed:
+
+1. **No right-click menu.** Electron has no context menu of its own, so right-clicking the import box offered no Paste. The setup window now shows a native Cut / Copy / Paste / Select All menu in text fields, and Copy on selected text. It is built from roles in `electron/contextMenu.cjs`, in the main process only.
+2. **The export toast blocked the menu.** After a download, the "Exported …" toast stays up for 2.5 s. When the menu was reopened in that time it could fall under the toast: in the 1080×860 window, with Export mid-window, the menu spans y 681–769 and the toast 719–760. Clicking "Copy as text" then hit the toast and copied nothing. The menu now sits above the toast, and the toast lets clicks through. Chrome uses the same CSS, so a short Chrome window could hit this too.
+
+Left as is:
+
+- The "Exported <name>.json" toast appears as soon as the Save panel opens. If the user cancels the panel, nothing is saved but the toast has already said Exported. The page can't see what the panel did without IPC, which this quest ruled out. Chrome behaves the same with "Ask where to save each file" on.
+- The script did not press the panels' own Save and Open buttons. It gave the download a save path and handed the file input its file through DevTools, which is what those buttons do. Clicking through both panels by hand once is still worth doing.
