@@ -586,6 +586,26 @@ describe('setup view export', () => {
     expect(menu().hidden).toBe(true);
   });
 
+  it('moves through the menu with the arrow keys and leaves it on Tab', () => {
+    mountSetup(container, { storage, onStart: () => {} });
+    exportBtn().click();
+    const download = container.querySelector('.setup-export-download')!;
+    const copy = container.querySelector('.setup-export-copy')!;
+    expect(menu().getAttribute('role')).toBe('menu');
+    expect(download.getAttribute('role')).toBe('menuitem');
+    expect(document.activeElement).toBe(download);
+    const key = (k: string) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
+    key('ArrowDown');
+    expect(document.activeElement).toBe(copy);
+    key('ArrowDown');
+    expect(document.activeElement).toBe(download);
+    key('ArrowUp');
+    expect(document.activeElement).toBe(copy);
+    key('Tab');
+    expect(menu().hidden).toBe(true);
+    expect(document.activeElement).toBe(exportBtn());
+  });
+
   it('keeps the menu open while the page scrolls', () => {
     mountSetup(container, { storage, onStart: () => {} });
     exportBtn().click();

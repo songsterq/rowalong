@@ -80,9 +80,11 @@ export function mountExportMenu(root: HTMLElement): ExportMenu {
   menu.className = 'setup-export-menu';
   menu.id = 'setup-export-menu';
   menu.hidden = true;
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', 'Export workout');
   menu.innerHTML = `
-    <button type="button" class="setup-export-download">${ICON.download} Download .json</button>
-    <button type="button" class="setup-export-copy">${ICON.copy} Copy as text</button>`;
+    <button type="button" role="menuitem" class="setup-export-download">${ICON.download} Download .json</button>
+    <button type="button" role="menuitem" class="setup-export-copy">${ICON.copy} Copy as text</button>`;
 
   // Names are untrusted (they can come from an imported file): set as textContent only.
   const toast = doc.createElement('div');
@@ -111,6 +113,11 @@ export function mountExportMenu(root: HTMLElement): ExportMenu {
   };
   const onKeyDown = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape') {
+      close();
+      return;
+    }
+    // Tab leaves the menu: close it (focus goes back to the anchor) and let Tab move on.
+    if (ev.key === 'Tab') {
       close();
       return;
     }
