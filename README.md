@@ -53,6 +53,73 @@ Silicon without notarization.
 3. Click the overlay to pause/resume; hover for previous/next/stop and the density
    toggle.
 
+## Share a workout
+
+Workouts and templates live in one machine's local storage. To give a workout to
+a friend or move it to another computer, export it as a small JSON file or as
+text, and import it on the other side. Chrome and the macOS app work the same way.
+
+**Export.** Click **Export** next to **Save** to share the workout in the builder,
+or the export icon on any row of the Templates list (the built-in starters
+included). Then pick:
+
+- **Download .json** saves `<name>.json`. In the macOS app a Save panel opens
+  first.
+- **Copy as text** puts the same JSON on the clipboard, ready to paste into a
+  message.
+
+The builder's workout takes its name from the name field. If that is empty, it
+uses the template or generated workout it came from. RowAlong won't export a
+workout it couldn't import again, such as one with a 7-second block. Instead it
+says what's wrong.
+
+**Import.** Open **Import a workout** under the builder. Either paste the text
+and click **Import pasted text**, or click **Choose file…** and pick a `.json`
+file. The workout replaces what's in the builder and its name fills the name
+field. Nothing is saved: click **Save** to keep it as a template. If the input
+isn't a valid workout, a message says why and the builder stays as it was.
+
+### The share format
+
+A shared workout is a JSON object, version 1:
+
+```json
+{
+  "format": "rowalong-workout",
+  "version": 1,
+  "name": "Two sprints",
+  "segments": [
+    { "intensity": "easy", "durationSec": 120 },
+    { "intensity": "allout", "durationSec": 30, "label": "Sprint 1" },
+    { "intensity": "easy", "durationSec": 60 },
+    { "intensity": "allout", "durationSec": 30, "label": "Sprint 2" },
+    { "intensity": "easy", "durationSec": 180 }
+  ]
+}
+```
+
+| Field | Rule |
+| --- | --- |
+| `format` | Always `"rowalong-workout"`. |
+| `version` | `1`, the only version this release reads. A file from a newer RowAlong is refused with a message naming its version. |
+| `name` | Text, at most 80 characters. If it's empty, the workout runs as "Imported workout". |
+| `segments` | 1 to 200 segments, run in order. |
+| `segments[].intensity` | `"easy"`, `"medium"`, `"hard"` or `"allout"`. |
+| `segments[].durationSec` | Whole seconds: a multiple of 5, from 5 to 3600 (an hour). |
+| `segments[].label` | Optional text. |
+
+The whole input must be under 100 KB. Segments carry no ids, because ids only
+mean something in one machine's storage. Each imported segment gets a new one.
+Any field not in the table is ignored.
+
+Import is all or nothing. If one field breaks a rule, the whole input is refused
+and nothing changes. The message says what's wrong, and which segment if the
+problem is in one. Names and labels from a file are always shown as plain text,
+never as HTML.
+
+The codec is `src/core/shareFormat.ts` (`exportWorkout` / `parseWorkout`), and
+its limits are `SHARE_LIMITS`.
+
 ## Landing page
 
 The marketing site lives in `site/` (static, no build step) and deploys to
