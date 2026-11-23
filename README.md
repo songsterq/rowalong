@@ -53,6 +53,62 @@ Silicon without notarization.
 3. Click the overlay to pause/resume; hover for previous/next/stop and the density
    toggle.
 
+## Share a workout
+
+Workouts and templates live in the app's local storage, so to give one to a
+friend or move it to another computer, export it and import it on the other end.
+This works the same way in Chrome and in the macOS app.
+
+**Export.** Click **Export** next to **Save** to share the workout in the builder.
+It takes its name from the name field. If that field is empty, it uses the name
+of the template you loaded or the workout you generated. To share a template,
+built-in or your own, click the export icon on its row in **Templates**. Then
+pick one of:
+
+- **Download .json file** saves `<name>.json`.
+- **Copy as text** puts the same JSON on the clipboard, ready to paste into a
+  message.
+
+**Import.** Click **Import** in the **Build session** header. Paste an exported
+workout and click **Load**, or click **Choose file…** and pick a `.json` file.
+The workout loads into the builder with its name filled in. Importing saves
+nothing on its own: press **Save** to keep it as a template. If the input isn't
+a valid workout, the whole import is refused with a message saying why, and the
+builder stays as it was.
+
+### Share format
+
+An exported workout is a small JSON document:
+
+```json
+{
+  "format": "rowalong-workout",
+  "version": 1,
+  "name": "Quick sprints",
+  "segments": [
+    { "intensity": "easy", "durationSec": 180, "label": "Warm-up" },
+    { "intensity": "hard", "durationSec": 60 },
+    { "intensity": "allout", "durationSec": 30 },
+    { "intensity": "easy", "durationSec": 120 }
+  ]
+}
+```
+
+| Field | Rule |
+| --- | --- |
+| `format` | Always `"rowalong-workout"`. |
+| `version` | Always `1`. Files with a newer version ask you to update RowAlong. |
+| `name` | Text, at most 80 characters. Longer template names are shortened on export. |
+| `segments` | 1 to 200 segments, in order. |
+| `segments[].intensity` | One of `easy`, `medium`, `hard`, `allout`. |
+| `segments[].durationSec` | Seconds, a multiple of 5 from 5 to 3600. |
+| `segments[].label` | Optional text. |
+
+The whole input must be under 100 KB. Segments carry no ids, because ids are
+local to each install and an import always makes new ones. Fields not listed
+above are ignored. Names and labels are untrusted, so the setup page shows them
+as plain text, never as HTML.
+
 ## Landing page
 
 The marketing site lives in `site/` (static, no build step) and deploys to

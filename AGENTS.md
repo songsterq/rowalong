@@ -50,12 +50,28 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
     weekly / all-time stats over `SessionRecord[]`.
   - `sessionRecorder.ts` — `createRecorder(storage, ctx)`: write-once
     `finish(elapsedSec, completed)` that turns a run into a `SessionRecord`.
+  - `shareFormat.ts` — the workout share codec (format described in the README).
+    `exportWorkout(name, segments)` writes the versioned
+    `{ format: 'rowalong-workout', version: 1, name, segments }` JSON, without ids.
+    `parseWorkout(text)` is all-or-nothing: it returns the workout with fresh
+    segment ids, or one user-facing error, and its messages never quote input
+    strings. Its validation caps follow the **5-second-unit convention**:
+    durations must be multiples of `DURATION_STEP_SEC` (5) from 5 to 3600 s, the
+    same grid `generator.ts`, `pushStyles.ts` and the segment editor use. The
+    other caps are 1–200 segments, an 80-char name, and input under 100 KB.
+    Changing the payload's shape, or loosening a cap, needs a version bump:
+    installs that haven't updated still apply version 1's rules, and a bump gets
+    them an "update Rowalong" message instead of a confusing rejection.
 - `src/ui/` — DOM:
   - `overlayView.ts` — the floating widget; **injects its own CSS** so it works in
     any host document; pill/coach density toggle; click-to-pause; controls.
   - `segmentEditor.ts`, `setupView.ts` — the setup page.
   - `historyPanel.ts` — `renderHistory`: streak/week/total stat tiles, the
     13-week heatmap, and the last-3-sessions list with `onPick` to reload one.
+  - `shareActions.ts` — the setup page's export side: `prepareExport` (checks an
+    export by re-parsing it, so every file handed out imports again) and
+    `ShareIO`/`webShareIO` (a Blob `<a download>` and `navigator.clipboard`;
+    Electron uses the same web APIs, with no IPC).
 - `src/shell/` — `overlayHost.ts` (`OverlayHost` interface + `isPipSupported`),
   `pipOverlayHost.ts` (browser Document Picture-in-Picture).
 - `src/main.ts` — setup-page entry. On Start: if `window.electronAPI` → hand off to
@@ -100,7 +116,8 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   repeated 7-min pushes separated by 3-min bridges → easy cool-down — supporting
   only 10/20/30 min (1/2/3 pushes). Any leftover *inside a push* becomes the leading
   medium "build"; unsupported totals snap to the nearest of 10/20/30. Keep new
-  generator logic in units.
+  generator logic in units. `shareFormat.ts` checks imports on the same 5-second
+  grid, so if the step ever changes, change `DURATION_STEP_SEC` along with it.
 - **`sessionEngine` is driven by `tick()`** off an injectable `Clock`
   (`performance.now()` in prod, a `FakeClock` in tests). `stop()` ends *without* a
   `complete` event; natural end-of-workout fires `complete`.
