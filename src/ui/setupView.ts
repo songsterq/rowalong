@@ -3,6 +3,7 @@ import { Storage, Density } from '../core/storage';
 import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
 import { PushStyle, PUSH_STYLES } from '../core/pushStyles';
 import { starterTemplates } from '../core/starters';
+import { parseWorkout, MAX_INPUT_BYTES, TOO_LARGE_ERROR } from '../core/shareFormat';
 import { renderEditor, readEditor } from './segmentEditor';
 import { escapeHtml, formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
@@ -54,6 +55,7 @@ const ICON = {
   export: '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  import: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>', // export, reversed
 };
 
 /** How long an export confirmation stays up; failures stay longer so they can be read. */
@@ -97,7 +99,25 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
           <section class="panel">
             <div class="panel-head">
               <h2>Build session</h2>
-              <span class="hint">Generate a workout, then fine-tune the blocks</span>
+              <div class="head-end">
+                <span class="hint">Generate or import a workout, then fine-tune the blocks</span>
+                <button class="btn btn-sm setup-import-toggle" aria-expanded="false" aria-controls="setup-import">${ICON.import} Import</button>
+              </div>
+            </div>
+
+            <div class="import-box setup-import" id="setup-import" hidden>
+              <textarea class="setup-import-text" rows="5" spellcheck="false" aria-label="Workout to import"
+                placeholder="Paste an exported workout here"></textarea>
+              <p class="import-error setup-import-error" role="alert" hidden></p>
+              <div class="import-actions">
+                <label class="btn btn-sm import-file">
+                  <input class="setup-import-file" type="file" accept=".json,application/json" />
+                  Choose file…
+                </label>
+                <span class="import-note">Loads into the builder. Nothing is saved until you press Save.</span>
+                <button class="btn btn-sm setup-import-cancel">Cancel</button>
+                <button class="btn btn-sm setup-import-load">Load</button>
+              </div>
             </div>
 
             <div class="controls">
@@ -221,6 +241,11 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   const summaryTotal = container.querySelector('.setup-summary-total') as HTMLElement;
   const summarySub = container.querySelector('.setup-summary-sub') as HTMLElement;
   const historyEl = container.querySelector('.setup-history') as HTMLElement;
+  const importToggle = container.querySelector('.setup-import-toggle') as HTMLButtonElement;
+  const importBox = container.querySelector('.setup-import') as HTMLElement;
+  const importText = container.querySelector('.setup-import-text') as HTMLTextAreaElement;
+  const importFile = container.querySelector('.setup-import-file') as HTMLInputElement;
+  const importError = container.querySelector('.setup-import-error') as HTMLElement;
   // Provenance label for the workout currently in the editor: where it came from,
   // not what it now contains, so it survives manual block edits.
   let programName = '';
@@ -397,6 +422,51 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
       }),
     );
   };
+
+  const showImportError = (message: string) => {
+    importError.textContent = message; // text, not markup: never trust what's being imported
+    importError.hidden = false;
+  };
+  const setImportOpen = (open: boolean) => {
+    importBox.hidden = !open;
+    importToggle.setAttribute('aria-expanded', String(open));
+    importText.value = '';
+    importError.hidden = true;
+    importError.textContent = '';
+    if (open) importText.focus();
+  };
+  // All or nothing: bad input shows parseWorkout's message and leaves the builder as
+  // it was. A good one replaces the builder's workout but saves nothing; the user
+  // keeps it as a template with Save if they want.
+  const importWorkout = (text: string) => {
+    const result = parseWorkout(text);
+    if (!result.ok) return showImportError(result.error);
+    const { name, segments } = result.workout; // segments come with fresh ids
+    renderWorkout(segments, name.trim() || 'Imported workout');
+    nameEl.value = name;
+    setImportOpen(false);
+  };
+
+  importToggle.addEventListener('click', () => setImportOpen(Boolean(importBox.hidden)));
+  container.querySelector('.setup-import-cancel')!.addEventListener('click', () => setImportOpen(false));
+  container.querySelector('.setup-import-load')!.addEventListener('click', () => {
+    if (!importText.value.trim()) return showImportError('Paste an exported workout first, or choose a file.');
+    importWorkout(importText.value);
+  });
+  importFile.addEventListener('change', async () => {
+    const file = importFile.files?.[0];
+    importFile.value = ''; // so picking the same file again still fires change
+    if (!file) return;
+    // Refuse by size before reading: a wrong pick (a video, say) shouldn't be read into memory.
+    if (file.size >= MAX_INPUT_BYTES) return showImportError(TOO_LARGE_ERROR);
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      return showImportError("That file couldn't be read.");
+    }
+    importWorkout(text);
+  });
 
   const renderHistoryPanel = () => {
     renderHistory(historyEl, opts.storage.listSessions(), {

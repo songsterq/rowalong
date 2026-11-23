@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mountSetup, summarize } from '../src/ui/setupView';
 import { Storage, type KeyValueStore } from '../src/core/storage';
 import type { Segment, SessionRecord } from '../src/core/types';
-import { parseWorkout } from '../src/core/shareFormat';
+import { exportWorkout, parseWorkout, MAX_INPUT_BYTES } from '../src/core/shareFormat';
 import { starterTemplates } from '../src/core/starters';
 
 class Mem implements KeyValueStore {
@@ -19,11 +19,13 @@ class Mem implements KeyValueStore {
 }
 
 let container: HTMLElement;
+let mem: Mem;
 let storage: Storage;
 beforeEach(() => {
   document.body.innerHTML = '<div id="app"></div>';
   container = document.getElementById('app')!;
-  storage = new Storage(new Mem());
+  mem = new Mem();
+  storage = new Storage(mem);
 });
 
 describe('setup view', () => {
@@ -215,6 +217,213 @@ describe('setup view templates list with untrusted names', () => {
     expect(list.querySelector('img')).toBeNull();
     const names = Array.from(list.querySelectorAll('.t-name')).map((n) => n.textContent);
     expect(names).toContain(HOSTILE_NAME);
+  });
+});
+
+describe('setup view import', () => {
+  const SOURCE: Segment[] = [
+    { id: 'src-1', intensity: 'easy', durationSec: 300, label: 'Warm-up' },
+    { id: 'src-2', intensity: 'allout', durationSec: 45 },
+    { id: 'src-3', intensity: 'medium', durationSec: 120, label: 'Bridge' },
+  ];
+  const EXPORTED = exportWorkout('Friday pyramid', SOURCE);
+  const byValue = (segments: Segment[]) => segments.map(({ id: _id, ...rest }) => rest);
+
+  const el = <T extends HTMLElement = HTMLElement>(sel: string) => container.querySelector<T>(sel)!;
+  const nameField = () => el<HTMLInputElement>('.setup-name');
+  const importBox = () => el('.setup-import');
+  const importError = () => el('.setup-import-error');
+
+  /** Mount, and return a `start()` that presses Start and reports what it was handed. */
+  function mount() {
+    let started = { segments: [] as Segment[], programName: '' };
+    mountSetup(container, {
+      storage,
+      onStart: (segments, programName) => (started = { segments, programName }),
+    });
+    return () => {
+      el<HTMLButtonElement>('.setup-start').click();
+      return started;
+    };
+  }
+  function openImport() {
+    if (importBox().hidden) el<HTMLButtonElement>('.setup-import-toggle').click();
+  }
+  function paste(text: string) {
+    openImport();
+    el<HTMLTextAreaElement>('.setup-import-text').value = text;
+    el<HTMLButtonElement>('.setup-import-load').click();
+  }
+  function chooseFile(file: File) {
+    openImport();
+    const input = el<HTMLInputElement>('.setup-import-file');
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const jsonFile = (text: string) => new File([text], 'workout.json', { type: 'application/json' });
+
+  it('keeps the import box closed until Import is pressed', () => {
+    mount();
+    const toggle = el('.setup-import-toggle');
+    expect(importBox().hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    expect(importBox().hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(importError().hidden).toBe(true);
+  });
+
+  it('loads pasted text into the builder: same segments, fresh ids, its name', () => {
+    const start = mount();
+    paste(EXPORTED);
+    expect(container.querySelectorAll('.seg-row')).toHaveLength(3);
+    expect(nameField().value).toBe('Friday pyramid');
+    const { segments, programName } = start();
+    expect(programName).toBe('Friday pyramid');
+    expect(byValue(segments)).toEqual(byValue(SOURCE));
+    const ids = segments.map((s) => s.id);
+    expect(new Set(ids).size).toBe(3);
+    for (const id of ids) expect(SOURCE.map((s) => s.id)).not.toContain(id);
+    expect(importBox().hidden).toBe(true);
+  });
+
+  it('loads a chosen .json file the same way', async () => {
+    const start = mount();
+    chooseFile(jsonFile(EXPORTED));
+    await vi.waitFor(() => expect(nameField().value).toBe('Friday pyramid'));
+    const { segments, programName } = start();
+    expect(programName).toBe('Friday pyramid');
+    expect(byValue(segments)).toEqual(byValue(SOURCE));
+    expect(importBox().hidden).toBe(true);
+  });
+
+  it('round-trips: importing, then exporting the builder, gives back the same text', async () => {
+    const share = { download: vi.fn<(fileName: string, text: string) => void>(), copy: vi.fn(() => Promise.resolve()) };
+    mountSetup(container, { storage, onStart: () => {}, share });
+    paste(EXPORTED);
+    el<HTMLButtonElement>('.setup-export').click();
+    el<HTMLButtonElement>('.export-menu [data-action="copy"]').click();
+    await vi.waitFor(() => expect(share.copy).toHaveBeenCalledOnce());
+    expect(share.copy.mock.calls[0]).toEqual([EXPORTED]);
+    el<HTMLButtonElement>('.setup-export').click();
+    el<HTMLButtonElement>('.export-menu [data-action="download"]').click();
+    expect(share.download.mock.calls[0]).toEqual(['Friday pyramid.json', EXPORTED]);
+  });
+
+  it('writes nothing to storage, from pasted text or a file', async () => {
+    mount();
+    const before = [...mem.m];
+    paste(EXPORTED);
+    chooseFile(jsonFile(exportWorkout('From a file', SOURCE)));
+    await vi.waitFor(() => expect(nameField().value).toBe('From a file'));
+    expect([...mem.m]).toEqual(before);
+    expect(storage.listTemplates()).toHaveLength(0);
+  });
+
+  const valid = { format: 'rowalong-workout', version: 1, name: 'Fine', segments: [{ intensity: 'easy', durationSec: 60 }] };
+  const BAD: [string, string][] = [
+    ['text that is not JSON', 'Friday pyramid, 20 minutes'],
+    ['the wrong format', JSON.stringify({ ...valid, format: 'something-else' })],
+    ['a newer version', JSON.stringify({ ...valid, version: 2 })],
+    ['a duration off the 5 s grid', JSON.stringify({ ...valid, segments: [{ intensity: 'easy', durationSec: 7 }] })],
+    ['no segments', JSON.stringify({ ...valid, segments: [] })],
+    ['a name over 80 characters', JSON.stringify({ ...valid, name: 'x'.repeat(81) })],
+  ];
+
+  it.each(BAD)('rejects pasted %s with its message, leaving the builder as it was', (_what, text) => {
+    const start = mount();
+    nameField().value = 'Keep me';
+    const before = start();
+    paste(text);
+    const expected = parseWorkout(text);
+    expect(expected.ok).toBe(false);
+    expect(importError().hidden).toBe(false);
+    expect(importError().textContent).toBe(expected.ok ? '' : expected.error);
+    expect(start()).toEqual(before);
+    expect(nameField().value).toBe('Keep me');
+    // The box stays open with the text in it, so it can be fixed.
+    expect(importBox().hidden).toBe(false);
+    expect(el<HTMLTextAreaElement>('.setup-import-text').value).toBe(text);
+  });
+
+  it('rejects an invalid file with its message, leaving the builder as it was', async () => {
+    const start = mount();
+    const before = start();
+    const text = JSON.stringify({ ...valid, segments: [] });
+    chooseFile(jsonFile(text));
+    await vi.waitFor(() => expect(importError().hidden).toBe(false));
+    const expected = parseWorkout(text);
+    expect(importError().textContent).toBe(expected.ok ? '' : expected.error);
+    expect(start()).toEqual(before);
+  });
+
+  it('refuses a file of 100 KB or more without reading it', async () => {
+    const start = mount();
+    const before = start();
+    const big = jsonFile(' '.repeat(MAX_INPUT_BYTES));
+    const read = vi.spyOn(big, 'text');
+    chooseFile(big);
+    await vi.waitFor(() => expect(importError().hidden).toBe(false));
+    const expected = parseWorkout(' '.repeat(MAX_INPUT_BYTES));
+    expect(importError().textContent).toBe(expected.ok ? '' : expected.error);
+    expect(read).not.toHaveBeenCalled();
+    expect(start()).toEqual(before);
+  });
+
+  it('asks for something to import when Load is pressed with nothing pasted', () => {
+    const start = mount();
+    const before = start();
+    paste('   ');
+    expect(importError().hidden).toBe(false);
+    expect(importError().textContent).not.toBe('');
+    expect(start()).toEqual(before);
+  });
+
+  it('clears an earlier error once an import succeeds', () => {
+    mount();
+    paste('not json');
+    expect(importError().hidden).toBe(false);
+    paste(EXPORTED);
+    expect(importError().hidden).toBe(true);
+    // Reopening starts clean.
+    openImport();
+    expect(importError().hidden).toBe(true);
+    expect(el<HTMLTextAreaElement>('.setup-import-text').value).toBe('');
+  });
+
+  it('Cancel closes the box and drops what was pasted', () => {
+    mount();
+    openImport();
+    el<HTMLTextAreaElement>('.setup-import-text').value = 'half a paste';
+    el<HTMLButtonElement>('.setup-import-cancel').click();
+    expect(importBox().hidden).toBe(true);
+    openImport();
+    expect(el<HTMLTextAreaElement>('.setup-import-text').value).toBe('');
+  });
+
+  it('shows an imported name and label containing HTML as plain text', () => {
+    const hostileName = '<img src=x onerror=alert(1)>';
+    const hostileLabel = '<b onmouseover=alert(1)>bold</b>';
+    const start = mount();
+    paste(exportWorkout(hostileName, [{ id: 'x', intensity: 'hard', durationSec: 60, label: hostileLabel }]));
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.setup-editor b')).toBeNull();
+    expect(el('.seg-row .seg-label').textContent).toBe(hostileLabel);
+    expect(nameField().value).toBe(hostileName);
+    expect(start().segments[0].label).toBe(hostileLabel);
+
+    // Saved with the existing Save button, it lists as text in Templates too.
+    el<HTMLButtonElement>('.setup-save').click();
+    const list = el('.setup-tpl-list');
+    expect(list.querySelector('img')).toBeNull();
+    expect(Array.from(list.querySelectorAll('.t-name')).map((n) => n.textContent)).toContain(hostileName);
+  });
+
+  it('gives an unnamed workout a program name, and leaves the name field blank', () => {
+    const start = mount();
+    paste(exportWorkout('', SOURCE));
+    expect(nameField().value).toBe('');
+    expect(start().programName).toBe('Imported workout');
   });
 });
 

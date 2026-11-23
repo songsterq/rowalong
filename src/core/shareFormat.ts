@@ -13,6 +13,10 @@ export const MAX_SEGMENTS = 200;
 export const MAX_NAME_LENGTH = 80; // characters (code points)
 export const MAX_INPUT_BYTES = 100 * 1024; // UTF-8 bytes; input this size or larger is refused
 
+/** parseWorkout's message for input of MAX_INPUT_BYTES or more. Exported so a caller
+ *  holding a file can refuse it by its size without reading it. */
+export const TOO_LARGE_ERROR = `This is too large to be a Rowalong workout: it must be under ${MAX_INPUT_BYTES / 1024} KB.`;
+
 /** The share payload: one workout, by value, with no ids. Ids are local to an
  *  install, so an import always mints fresh ones. */
 export interface WorkoutPayload {
@@ -56,7 +60,7 @@ export function exportWorkout(name: string, segments: readonly Segment[]): strin
 export function parseWorkout(text: string): ParseResult {
   // UTF-16 length never exceeds UTF-8 byte length, so this skips encoding huge input.
   if (text.length >= MAX_INPUT_BYTES || new TextEncoder().encode(text).length >= MAX_INPUT_BYTES) {
-    return fail(`This is too large to be a Rowalong workout: it must be under ${MAX_INPUT_BYTES / 1024} KB.`);
+    return fail(TOO_LARGE_ERROR);
   }
 
   let data: unknown;

@@ -69,7 +69,7 @@ export const SETUP_CSS = `
   .setup .panel + .panel { margin-top: 18px; }
   .setup .panel-head { display: flex; align-items: baseline; justify-content: space-between;
     gap: 12px; margin-bottom: 16px; }
-  .setup .panel-head h2 { margin: 0; font-size: 11.5px; font-weight: 750; letter-spacing: 0.12em;
+  .setup .panel-head h2 { margin: 0; white-space: nowrap; font-size: 11.5px; font-weight: 750; letter-spacing: 0.12em;
     text-transform: uppercase; color: var(--dim); }
   .setup .panel-head .hint { font-size: 11.5px; color: var(--mute); text-align: right; }
 
@@ -162,10 +162,12 @@ export const SETUP_CSS = `
     padding: 7px 8px; font-variant-numeric: tabular-nums; }
   .setup .seg-unit { color: var(--mute); font-size: 12px; }
   .setup .seg-mmss { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 36px; }
-  /* optional segment label (from a shared workout); truncates before anything else does */
-  .setup .seg-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* optional segment label (from a shared workout). It takes only the row's leftover
+     space (zero basis and width), so a long one truncates instead of widening the row
+     and, through it, the whole build column. */
+  .setup .seg-label { flex: 1 1 0; width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: 12px; font-weight: 600; color: var(--dim); }
-  .setup .seg-spm { margin-left: auto; font-size: 11.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
+  .setup .seg-spm { margin-left: auto; white-space: nowrap; font-size: 11.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
   .setup .seg-actions { display: flex; gap: 2px; }
   .setup .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border: 0;
     background: transparent; color: var(--mute); cursor: pointer; border-radius: 8px; font-size: 13px;
@@ -179,6 +181,29 @@ export const SETUP_CSS = `
   .setup .setup-name { flex: 1; font: inherit; font-size: 13.5px; color: var(--text);
     background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px; padding: 11px 13px; }
   .setup .setup-name::placeholder { color: var(--mute); }
+
+  /* ---------- import ---------- */
+  .setup .head-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .setup .btn-sm { padding: 6px 11px; font-size: 12.5px; border-radius: 9px; gap: 6px; }
+  .setup .btn-sm svg { width: 13px; height: 13px; }
+  .setup .import-box { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; padding: 12px;
+    background: var(--inset); border: 1px solid var(--border-2); border-radius: 12px; }
+  .setup .import-box[hidden] { display: none; }
+  .setup .setup-import-text { width: 100%; min-height: 96px; resize: vertical;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border-2); border-radius: 9px; padding: 10px 12px; }
+  .setup .setup-import-text::placeholder { color: var(--mute); }
+  .setup .setup-import-text:focus-visible { outline: none; border-color: oklch(0.7 0.13 45);
+    box-shadow: 0 0 0 3px oklch(0.7 0.16 45 / 0.25); }
+  .setup .import-error { margin: 0; font-size: 12.5px; line-height: 1.45; color: #ff7a7c; }
+  .setup .import-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .setup .import-note { flex: 1; min-width: 160px; font-size: 11.5px; color: var(--mute); }
+  /* the file input sits inside its label, which opens the picker; kept focusable for keyboards */
+  .setup .import-file { position: relative; }
+  .setup .import-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .setup .import-file:has(input:focus-visible) { outline: 2px solid oklch(0.7 0.13 45); outline-offset: 2px; }
+  .setup .setup-import-load { background: oklch(0.6 0.16 40 / 0.35); border-color: oklch(0.7 0.13 45 / 0.5); }
+  .setup .setup-import-load:hover { background: oklch(0.6 0.16 40 / 0.5); }
 
   /* ---------- templates ---------- */
   .setup .setup-tpl-list { display: flex; flex-direction: column; gap: 8px; }
