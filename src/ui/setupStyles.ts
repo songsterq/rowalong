@@ -191,6 +191,36 @@ export const SETUP_CSS = `
   .setup .setup-tpl .t-swatches { display: flex; gap: 3px; }
   .setup .setup-tpl .t-swatches i { width: 5px; height: 16px; border-radius: 2px; opacity: 0.85; }
   .setup .setup-tpl .setup-del { color: var(--mute); }
+  .setup .setup-tpl .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.8;
+    fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  /* rows lift on hover, so raise the one whose export menu is open above its neighbours */
+  .setup .setup-tpl:has(.export-menu:not([hidden])) { position: relative; z-index: 3; }
+
+  /* ---------- export menu + confirmation toast ---------- */
+  .setup .export-anchor { position: relative; display: inline-flex; flex: none; }
+  .setup .export-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 200px;
+    display: flex; flex-direction: column; gap: 2px; padding: 5px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 34px oklch(0 0 0 / 0.45); }
+  .setup .export-menu[hidden] { display: none; }
+  /* the save row sits just above the sticky start bar, so its menu opens upward */
+  .setup .save-row .export-menu { top: auto; bottom: calc(100% + 6px); }
+  .setup .export-menu button { display: flex; align-items: center; gap: 9px; width: 100%; font: inherit;
+    font-size: 13px; font-weight: 600; color: var(--text); text-align: left; white-space: nowrap;
+    background: transparent; border: 0; border-radius: 8px; padding: 9px 11px; cursor: pointer;
+    transition: background .15s; }
+  .setup .export-menu button:hover, .setup .export-menu button:focus-visible { outline: none;
+    background: oklch(1 0 0 / 0.07); }
+  .setup .export-menu svg { width: 15px; height: 15px; flex: none; stroke: var(--dim); stroke-width: 1.8;
+    fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .setup .setup-toast { position: fixed; left: 50%; bottom: 100px; z-index: 60;
+    max-width: min(520px, calc(100vw - 48px)); padding: 10px 16px; border-radius: 11px;
+    font-size: 13px; font-weight: 600; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); box-shadow: 0 12px 30px oklch(0 0 0 / 0.45);
+    opacity: 0; transform: translate(-50%, 8px); pointer-events: none;
+    transition: opacity .2s, transform .25s var(--ease); }
+  .setup .setup-toast[data-show="true"] { opacity: 1; transform: translate(-50%, 0); }
+  .setup .setup-toast[data-tone="error"] { background: oklch(0.27 0.05 25);
+    border-color: oklch(0.6 0.2 25 / 0.55); }
 
   /* ---------- preferences ---------- */
   .setup .pref { display: flex; flex-direction: column; gap: 16px; }
