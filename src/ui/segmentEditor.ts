@@ -35,6 +35,21 @@ function rowHtml(seg: Segment): string {
     </div>`;
 }
 
+/** Put a segment's label on its row: kept in data-label for readEditor, and shown.
+ *  It goes in through the DOM, never the markup, because labels can come from a
+ *  shared file: that way it's never parsed as HTML and reads back exactly as given
+ *  (the HTML parser would turn a CR into LF and a NUL into U+FFFD). */
+function setLabel(row: HTMLElement, label: string | undefined): void {
+  if (label === undefined) return;
+  row.dataset.label = label;
+  if (!label) return;
+  const span = row.ownerDocument.createElement('span');
+  span.className = 'seg-label';
+  span.textContent = label;
+  span.title = label;
+  row.querySelector('.seg-spm')!.before(span);
+}
+
 export function renderEditor(
   container: HTMLElement,
   segments: Segment[],
@@ -44,6 +59,7 @@ export function renderEditor(
     <div class="seg-list">${segments.map(rowHtml).join('')}</div>
     <button class="seg-add">+ Add segment</button>`;
   const list = container.querySelector('.seg-list') as HTMLElement;
+  list.querySelectorAll<HTMLElement>('.seg-row').forEach((row, i) => setLabel(row, segments[i].label));
   const fire = () => opts.onChange?.();
 
   container.querySelector('.seg-add')!.addEventListener('click', () => {
@@ -148,6 +164,12 @@ export function readEditor(container: HTMLElement): Segment[] {
       5,
       Math.round(Number((el.querySelector('.seg-dur') as HTMLInputElement).value) || 0),
     );
-    return { id: el.dataset.id || makeId(), intensity, durationSec };
+    const { label } = el.dataset;
+    return {
+      id: el.dataset.id || makeId(),
+      intensity,
+      durationSec,
+      ...(label !== undefined ? { label } : {}),
+    };
   });
 }

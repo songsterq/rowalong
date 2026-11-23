@@ -35,6 +35,59 @@ describe('segment editor', () => {
     expect(readEditor(container)[0].id).toBe(hostile);
   });
 
+  describe('segment labels', () => {
+    const labelled: Segment[] = [
+      { id: 'a', intensity: 'hard', durationSec: 45, label: 'Sprint' },
+      { id: 'b', intensity: 'easy', durationSec: 30 },
+    ];
+
+    it('carries a label through render → read', () => {
+      renderEditor(container, labelled);
+      expect(readEditor(container)).toEqual(labelled);
+    });
+
+    it('leaves the label off a segment that had none', () => {
+      renderEditor(container, labelled);
+      expect('label' in readEditor(container)[1]).toBe(false);
+    });
+
+    it('keeps an empty label', () => {
+      renderEditor(container, [{ id: 'a', intensity: 'easy', durationSec: 30, label: '' }]);
+      expect(readEditor(container)[0].label).toBe('');
+    });
+
+    it('shows the label on its row', () => {
+      renderEditor(container, labelled);
+      const rows = container.querySelectorAll('.seg-row');
+      expect(rows[0].querySelector('.seg-label')!.textContent).toBe('Sprint');
+      expect(rows[1].querySelector('.seg-label')).toBeNull();
+    });
+
+    it('shows a label containing HTML as text and reads it back exactly', () => {
+      // Labels can come from a shared file. A CR and a NUL are what the HTML parser
+      // would rewrite, so they prove the label never goes through markup.
+      const hostile = '<img src=x onerror=alert(1)>" data-x="1\r\n&amp;\u0000';
+      renderEditor(container, [{ id: 'a', intensity: 'easy', durationSec: 30, label: hostile }]);
+      const row = container.querySelector<HTMLElement>('.seg-row')!;
+      expect(container.querySelector('img')).toBeNull();
+      expect(row.getAttribute('data-x')).toBeNull();
+      expect(row.querySelector('.seg-label')!.textContent).toBe(hostile);
+      expect(readEditor(container)[0].label).toBe(hostile);
+    });
+
+    it('keeps a label with its row when the row moves', () => {
+      renderEditor(container, labelled);
+      container.querySelector<HTMLButtonElement>('.seg-row .seg-down')!.click();
+      expect(readEditor(container).map((s) => s.label)).toEqual([undefined, 'Sprint']);
+    });
+
+    it('adds new rows without a label', () => {
+      renderEditor(container, labelled);
+      container.querySelector<HTMLButtonElement>('.seg-add')!.click();
+      expect('label' in readEditor(container)[2]).toBe(false);
+    });
+  });
+
   it('reflects an edited duration on read-back', () => {
     renderEditor(container, segs);
     const input = container.querySelector<HTMLInputElement>('.seg-row .seg-dur')!;
