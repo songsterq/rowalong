@@ -8,9 +8,11 @@ import {
   shareIdFor,
   shareUrlFor,
 } from '../src/core/share';
+import { renderNotFoundPage, renderPreviewPage } from './previewPage';
 
-/** Request handling for the `rowalong` Worker: the share API under /api, and a
- *  fall-through to the static site (site/) for everything else. Written against
+/** Request handling for the `rowalong` Worker: the share API under /api, the
+ *  preview pages under /w, and a fall-through to the static site (site/) for
+ *  everything else. Written against
  *  the standard Request/Response and the structural bindings below rather than
  *  the Workers types, so tests drive it with a fake KV and fake assets; index.ts
  *  checks at compile time that the real bindings fit these shapes. */
@@ -76,7 +78,65 @@ const methodNotAllowed = (allow: string) =>
 export async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
   const path = new URL(request.url).pathname;
   if (path === '/api' || path.startsWith('/api/')) return handleApi(request, env.SHARES, path);
+  if (path.startsWith(PAGE_PREFIX)) return handlePage(request, env.SHARES, path.slice(PAGE_PREFIX.length));
   return env.ASSETS.fetch(request);
+}
+
+/** Share links (shareUrlFor) are `<base>/w/<id>`, the preview page. */
+const PAGE_PREFIX = '/w/';
+
+// The page loads only the site's stylesheet and icon plus Google Fonts, and runs
+// no script. Inline styles stay allowed: the timeline and block colors are
+// style attributes built from INTENSITY_META, never from shared content.
+const PAGE_CSP = [
+  "default-src 'none'",
+  "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
+  'font-src https://fonts.gstatic.com',
+  "img-src 'self'",
+  "script-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+// site/_headers only reaches responses served from site/, so the script sets
+// the same security headers on its own pages.
+const PAGE_HEADERS: Record<string, string> = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': PAGE_CSP,
+};
+
+// The workout behind an id never changes, but the page around it can (a new
+// download link), so browsers keep it an hour. A not-found page isn't cached:
+// a link shared a moment ago can take up to a minute to reach every KV location.
+const CACHE_PAGE = 'public, max-age=3600';
+
+/** GET /w/<id> (a trailing slash is fine): the preview page, or the friendly
+ *  not-found page with a 404 for an unknown or malformed id. */
+async function handlePage(request: Request, store: ShareStore, rest: string): Promise<Response> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('Method not allowed', {
+      status: 405,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+        Allow: 'GET, HEAD',
+      },
+    });
+  }
+  const id = rest.endsWith('/') ? rest.slice(0, -1) : rest;
+  const workout = await loadSharedWorkout(store, id);
+  const [status, html, cache] =
+    workout === null
+      ? [404, renderNotFoundPage(), 'no-store']
+      : [200, renderPreviewPage(id, workout), CACHE_PAGE];
+  return new Response(request.method === 'HEAD' ? null : html, {
+    status,
+    headers: { ...PAGE_HEADERS, 'Cache-Control': cache },
+  });
 }
 
 async function handleApi(request: Request, store: ShareStore, path: string): Promise<Response> {

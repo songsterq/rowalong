@@ -1,5 +1,8 @@
 import { INTENSITY_META, Segment } from '../core/types';
 
+// Pure string helpers, DOM-free: the share Worker (worker/previewPage.ts) renders
+// its preview page with them too, and it typechecks without the DOM library.
+
 /** Escape text for an HTML text node or a double-quoted attribute value. */
 export const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -18,7 +21,10 @@ export function formatClock(totalSec: number): string {
  * a hard edge. `blend` is a percentage of the total width applied on each side of a
  * boundary, clamped to half a segment so short slivers don't invert their stops.
  */
-export function timelineGradient(segments: Segment[], blend = 0.8): string {
+export function timelineGradient(
+  segments: readonly Pick<Segment, 'intensity' | 'durationSec'>[],
+  blend = 0.8,
+): string {
   const total = segments.reduce((sum, s) => sum + s.durationSec, 0);
   if (total <= 0) return 'transparent';
 
