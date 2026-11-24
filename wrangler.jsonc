@@ -1,18 +1,37 @@
 {
-  // Deploys the static landing page in `site/` as a Cloudflare Workers
-  // static-assets deployment. This config MUST live at the repo root: the
+  // The `rowalong` Worker: the static landing page in `site/` plus the
+  // share-a-workout API. This config MUST live at the repo root: the
   // Cloudflare build runs `wrangler deploy` from the root, and wrangler only
   // looks for config in the working directory (never in subdirectories). With
   // no root config, wrangler falls into its framework-setup wizard, detects the
   // root `vite.config.ts` (the Electron/overlay app — unrelated to the site),
   // and fails trying to patch a Vite `plugins` array that doesn't exist.
   //
-  // There is no `main` worker script: this is an assets-only deployment, so
-  // wrangler just uploads `site/` and serves it. `site/_headers` is honored.
+  // `site/` is still served by the assets layer exactly as before
+  // (`site/_headers` is honored). Only /api/* and /w/* run the `main` script
+  // first (worker/index.ts); everything else never touches it. Free tier only:
+  // static assets, one KV namespace and the rate-limit binding.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rowalong",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-06-07",
   "assets": {
-    "directory": "./site"
-  }
+    "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/w/*"]
+  },
+  // Shared workouts, keyed `w:<id>`. No `id` here: wrangler (pinned in
+  // devDependencies) provisions the namespace on the first deploy and reuses it
+  // after. To pin an existing namespace, add its "id" from
+  // `npx wrangler kv namespace create SHARES`.
+  "kv_namespaces": [{ "binding": "SHARES" }],
+  // Per-IP cap on POST /api/workouts (keyed by CF-Connecting-IP). namespace_id
+  // is any account-unique integer string; it needs no setup.
+  "ratelimits": [
+    {
+      "name": "CREATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ]
 }
