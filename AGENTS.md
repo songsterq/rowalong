@@ -79,8 +79,10 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   Electron; else open a PiP overlay (or an in-page fallback for non-Chrome).
 - `src/overlay-entry.ts` + `overlay.html` — the **Electron overlay window**; it
   owns the running session (engine + tones + overlay + tick loop).
-- `electron/` — `app.cjs` (main process: setup + overlay windows), `preload.cjs`
-  (`window.electronAPI` bridge, typed in `src/electron.d.ts`), `main.cjs` (spike).
+- `electron/` — `app.cjs` (main process: setup + overlay windows, rowalong://
+  deep links, single-instance lock), `preload.cjs` (`window.electronAPI` bridge,
+  typed in `src/electron.d.ts`), `deepLink.cjs` and `windowBounds.cjs` (pure,
+  unit-tested helpers with `.d.cts` typings), `main.cjs` (spike).
 - `worker/` — the `rowalong` Cloudflare Worker (`main` in the root `wrangler.jsonc`)
   that serves `site/` and the share API. `handler.ts` holds the routing and
   `POST /api/w` / `GET /api/w/<id>` over structural `ShareStore` (KV) and
@@ -154,6 +156,21 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   all close it without going through the engine's `complete` event or the
   overlay's own stop handler — `overlay-entry.ts` also records on the window's
   `pagehide` event, guarded by the recorder's write-once `finish()`.
+- **rowalong:// deep links only work in a packed build.** The scheme is declared
+  in the bundle's Info.plist (`protocols` in `electron-builder.yml`), and
+  `app.cjs` calls `setAsDefaultProtocolClient` only when `app.isPackaged`: under
+  `electron:dev` the running bundle is the stock Electron.app, and claiming the
+  scheme for it would send real links to a bare Electron window. In dev, pass the
+  link on the command line instead (`npx electron electron/app.cjs
+  rowalong://w/<id>` with Vite running). A cold start's `open-url` fires before
+  `ready`, so that listener stays registered at startup, and links wait in
+  `deepLink.cjs`'s queue until the setup page calls `onOpenShareLink` (which sends
+  `share-link-ready`). Main forwards the raw link; `importShareLink` parses it.
+  To check by hand: quit every RowAlong (a running copy with the same bundle id,
+  such as an installed v1.0.2, gets the link and ignores it), `npm run pack:dir`,
+  launch `release/mac-arm64/RowAlong.app` once so Launch Services registers it,
+  quit it, then `open 'rowalong://w/<id>'` for a cold start and again with the
+  app running.
 
 ## Reference
 
