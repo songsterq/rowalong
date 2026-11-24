@@ -11,10 +11,11 @@ npm run dev            # Browser version (open in Chrome). Overlay via Document 
 npm run electron:dev   # Electron app. Overlay floats over native-app fullscreen too.
 npm test               # Vitest, run once
 npm run test:watch     # Vitest, watch
-npm run typecheck      # tsc --noEmit
+npm run typecheck      # tsc --noEmit, for the app and then the Worker (worker/tsconfig.json)
 npm run build          # Vite multi-page build (index.html + overlay.html)
 npm run harness        # Render the real overlay to .harness/overlay.html (visual dev tool)
 npm run spike:electron # Standalone Electron overlay spike (manual)
+npm run worker:dev     # The site + share-API Worker locally (wrangler dev, :8787, local KV)
 ```
 
 Run a single test file: `npx vitest run tests/<name>.test.ts`.
@@ -80,6 +81,11 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   owns the running session (engine + tones + overlay + tick loop).
 - `electron/` — `app.cjs` (main process: setup + overlay windows), `preload.cjs`
   (`window.electronAPI` bridge, typed in `src/electron.d.ts`), `main.cjs` (spike).
+- `worker/` — the `rowalong` Cloudflare Worker (`main` in the root `wrangler.jsonc`)
+  that serves `site/` and the share API. `handler.ts` holds the routing and
+  `POST /api/w` / `GET /api/w/<id>` over structural `ShareStore` (KV) and
+  `AssetsFetcher` bindings, so tests use fakes; `index.ts` only binds it to the
+  real `KVNamespace`/`Fetcher`. Deploy + one-time KV setup: `site/DEPLOY.md`.
 
 **Two host paths:**
 - **Browser** → Document PiP. Floats over *browser* video only.
@@ -122,6 +128,12 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   `complete` event; natural end-of-workout fires `complete`.
 - **Generator segment ids are deterministic** (`seg-${seed}-${idx}`, not
   `crypto.randomUUID()`) so determinism tests pass; consumers re-id on load.
+- **The Worker typechecks against the Workers types, not the DOM.** The two
+  declare the same globals differently, so `worker/` has its own tsconfig (run
+  by `npm run typecheck`). Code shared with the app (`src/core/share.ts`) and
+  `worker/handler.ts` must compile under both, so only `worker/index.ts` may name
+  Workers-only types (`KVNamespace`, `ExportedHandler`, ...); tests import
+  `handler.ts`, never `index.ts`, and run in Vitest's `node` environment.
 - **Two HTML entries** (`index.html`, `overlay.html`) are registered in
   `vite.config.ts` `rollupOptions.input`; the dev server is pinned to port 5173
   (`strictPort`) because `electron/app.cjs` hardcodes that URL.

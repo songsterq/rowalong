@@ -1,0 +1,19 @@
+{
+  // Typechecks the Cloudflare Worker against the Workers runtime types instead
+  // of the DOM (the two declare the same globals differently, so they can't
+  // share the root config). `npm run typecheck` runs this after the root one.
+  // Wrangler bundles the Worker itself; nothing is emitted from here.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["."]
+}

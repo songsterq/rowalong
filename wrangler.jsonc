@@ -1,18 +1,34 @@
 {
-  // Deploys the static landing page in `site/` as a Cloudflare Workers
-  // static-assets deployment. This config MUST live at the repo root: the
-  // Cloudflare build runs `wrangler deploy` from the root, and wrangler only
-  // looks for config in the working directory (never in subdirectories). With
-  // no root config, wrangler falls into its framework-setup wizard, detects the
-  // root `vite.config.ts` (the Electron/overlay app — unrelated to the site),
-  // and fails trying to patch a Vite `plugins` array that doesn't exist.
+  // Deploys the `rowalong` Worker: the static landing page in `site/` plus a
+  // small Worker script (`worker/index.ts`) for share links. This config MUST
+  // live at the repo root: the Cloudflare build runs `wrangler deploy` from the
+  // root, and wrangler only looks for config in the working directory (never in
+  // subdirectories). With no root config, wrangler falls into its
+  // framework-setup wizard, detects the root `vite.config.ts` (the
+  // Electron/overlay app — unrelated to the site), and fails trying to patch a
+  // Vite `plugins` array that doesn't exist.
   //
-  // There is no `main` worker script: this is an assets-only deployment, so
-  // wrangler just uploads `site/` and serves it. `site/_headers` is honored.
+  // Only /api/* (the share API) and /w/* (share links) run the script
+  // (`run_worker_first`); every other request is served straight from `site/`
+  // without invoking it, and the script hands anything else it gets to the
+  // ASSETS binding. `site/_headers` applies to those static responses only, not
+  // to responses the script builds itself.
+  //
+  // SHARES is the Workers KV namespace holding shared workouts. Its `id` is
+  // created once by hand: see "Share links" in site/DEPLOY.md.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rowalong",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-06-07",
   "assets": {
-    "directory": "./site"
-  }
+    "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/w/*"]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SHARES",
+      "id": "PASTE_SHARES_NAMESPACE_ID_HERE"
+    }
+  ]
 }

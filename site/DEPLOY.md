@@ -2,19 +2,28 @@
 
 This `site/` folder is a self-contained static site. No build step.
 
-## Cloudflare Workers (static assets)
+## Cloudflare Workers (static assets + share API)
 
 Deployment is driven by **`/wrangler.jsonc` at the repo root** (not in this
-folder). It declares an assets-only Worker that serves `site/`:
+folder). It declares one Worker, `rowalong`, that serves `site/` and also runs
+a small script, `worker/index.ts`, for share links:
 
 ```jsonc
-{ "name": "rowalong", "assets": { "directory": "./site" } }
+{
+  "name": "rowalong",
+  "main": "worker/index.ts",
+  "assets": { "directory": "./site", "binding": "ASSETS", "run_worker_first": ["/api/*", "/w/*"] },
+  "kv_namespaces": [{ "binding": "SHARES", "id": "<namespace id>" }]
+}
 ```
 
 On every push to GitHub (`github.com:songsterq/rowalong`), Cloudflare's
-Workers Build runs `wrangler deploy` from the repo root, finds that config, and
-uploads `site/` — `site/index.html` is served at the project URL. `site/_headers`
-is honored.
+Workers Build runs `wrangler deploy` from the repo root, finds that config,
+bundles the script and uploads `site/`. `site/index.html` is served at the
+project URL and `site/_headers` is honored. Only `/api/*` and `/w/*` run the
+script; every other path is served straight from `site/` as before. `wrangler`
+is a dev dependency, so the build uses the locked version (it needs Node
+22.12 or newer).
 
 > **Why the config lives at the root, not here:** wrangler only looks for its
 > config in the working directory it runs from (the repo root), never in
@@ -24,6 +33,62 @@ is honored.
 
 > Cloudflare static assets cap individual files at 25 MiB. The DMG is ~118 MB, so
 > it is **not** part of this folder. It lives in Cloudflare R2 (see below).
+
+## Share links (Workers KV): one-time setup
+
+Shared workouts are stored in a Workers KV namespace bound to the Worker as
+`SHARES`. The binding is already declared in `/wrangler.jsonc`, but its `id`
+is a placeholder (`PASTE_SHARES_NAMESPACE_ID_HERE`) until you create the
+namespace. **Do this before the share code reaches `main`:** with the
+placeholder, `wrangler deploy` fails, and the site stays on its previous
+version until a deploy succeeds.
+
+From the repo root, signed in to the Cloudflare account that owns the
+`rowalong` Worker:
+
+1. `npx wrangler login` (once per machine; opens a browser).
+2. `npx wrangler kv namespace create rowalong-shares`. It prints the new
+   namespace's `id` (32 hex characters). If it asks
+   **"Would you like Wrangler to add it on your behalf?"**, answer **n**: the
+   binding is already in the config and only the id is missing.
+3. In `/wrangler.jsonc`, replace `PASTE_SHARES_NAMESPACE_ID_HERE` with that id.
+   The id is not a secret; commit it.
+4. Push to `main`. The Workers Build deploys the script with the binding.
+
+To check it once deployed (this creates one real, permanent link; sharing the
+same workout again reuses it):
+
+```sh
+curl -i -X POST https://rowalong.endlessrainstudio.com/api/w \
+  -H 'Content-Type: application/json' \
+  -d '{"version":1,"name":"Deploy check","segments":[{"intensity":"easy","durationSec":60}]}'
+# 201 (or 200 the second time) with {"id":"<id>","url":".../w/<id>"}
+curl -i https://rowalong.endlessrainstudio.com/api/w/<id>
+# 200 with the workout; an unknown id gives 404
+```
+
+The same namespace can be found later in the Cloudflare dashboard under
+**Storage & Databases → Workers KV**, or with `npx wrangler kv namespace list`.
+
+How it behaves:
+
+- `POST /api/w` validates the workout (`src/core/share.ts`: known intensities,
+  5-second durations, 200 segments, 32 KiB), stores it under a content-hashed
+  id only if that id isn't stored yet, with no expiry, and answers
+  `{ id, url }`. A bad or oversized workout gets a `400` with `{ error }`.
+- `GET /api/w/<id>` returns the workout, or `404`.
+- CORS is open to any origin (the packaged app's origin is `null`).
+- Links never expire and there is no delete endpoint. To take one down, delete
+  its key in the dashboard or with
+  `npx wrangler kv key delete --binding SHARES --remote <id>`.
+- Free-tier limits: 1,000 KV writes and 100,000 reads a day. Re-sharing the
+  same workout reads but doesn't write.
+- Share links use `SHARE_BASE_URL` in `src/core/share.ts`
+  (`https://rowalong.endlessrainstudio.com`). If the Worker's custom domain
+  changes, change it there.
+
+Run the Worker locally with `npm run worker:dev` (http://localhost:8787). It
+uses a local, simulated KV, so it works before the namespace exists.
 
 ## The download button
 
