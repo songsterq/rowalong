@@ -28,6 +28,14 @@ npm test               # unit suite (Vitest)
 npm run typecheck
 ```
 
+Sharing talks to the `rowalong` Cloudflare Worker (`worker/`). To develop
+against a local one (Node 22+):
+
+```bash
+npx wrangler dev                                      # Worker + site on :8787, local KV
+VITE_SHARE_BASE_URL=http://localhost:8787 npm run dev # app shares against it
+```
+
 ## Build the macOS app
 
 ```bash
@@ -53,11 +61,26 @@ Silicon without notarization.
 3. Click the overlay to pause/resume; hover for previous/next/stop and the density
    toggle.
 
+### Share a workout
+
+- **Share:** with a workout in the editor, type a name (or keep the generated
+  one) and click **Share**. You get a link like
+  `https://rowalong.endlessrainstudio.com/w/abc12345` to copy and send.
+  Opening it in any browser shows the workout's name, total time, intensity
+  timeline and blocks.
+- **Import:** paste a share link (or just its 8-character ID) into **Import** on
+  the setup page. The workout is saved to your templates under its shared name
+  and loaded into the editor, in the browser version and the macOS app alike.
+
+Links are public to anyone who has them, permanent, and can't be edited. There
+are no accounts.
+
 ## Landing page
 
-The marketing site lives in `site/` (static, no build step) and deploys to
-Cloudflare Pages; the DMG download is hosted on Cloudflare R2. See
-[`site/DEPLOY.md`](site/DEPLOY.md).
+The marketing site lives in `site/` (static, no build step) and deploys, with
+the share API and `/w/:id` preview pages, as the `rowalong` Cloudflare Worker
+(free tier, workouts in Workers KV); the DMG download is hosted on Cloudflare
+R2. See [`site/DEPLOY.md`](site/DEPLOY.md).
 
 ## Notes
 
