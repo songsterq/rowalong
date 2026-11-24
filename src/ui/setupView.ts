@@ -7,15 +7,62 @@ import { renderEditor, readEditor } from './segmentEditor';
 import { formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
 import { renderHistory } from './historyPanel';
+import {
+  MAX_NAME_LENGTH,
+  ShareClientOptions,
+  ShareError,
+  createShare,
+  fetchShare,
+  fromSharedWorkout,
+  toSharedWorkout,
+} from '../core/share';
+import { SHARE_BASE_URL } from '../shareConfig';
 
 const titleCase = (s: string) => s[0].toUpperCase() + s.slice(1);
 const INTENSITY_ORDER: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
+
+// Template names can now arrive from other people's share links, so anything
+// user-named goes through this before landing in innerHTML.
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+/** A user-facing sentence for a failed Share or Import. */
+export function shareErrorMessage(e: unknown, action: 'share' | 'import'): string {
+  const kind = e instanceof ShareError ? e.kind : 'server';
+  switch (kind) {
+    case 'bad_link':
+      return "That doesn't look like a RowAlong share link. Paste the whole link (…/w/abc12345) or its 8-character ID.";
+    case 'not_found':
+      return 'No shared workout at that link. Check it was copied in full.';
+    case 'rate_limited':
+      return 'Too many shares from this network just now. Try again in a few minutes.';
+    case 'network':
+      return `Couldn't reach RowAlong to ${action} the workout. Check your connection and try again.`;
+    case 'too_large':
+      return 'This workout is too big to share. Try fewer blocks or shorter labels.';
+    case 'invalid':
+      return action === 'share'
+        ? `This workout can't be shared: ${e instanceof Error ? e.message : 'it is invalid'}.`
+        : 'That shared workout is invalid and was not imported.';
+    default:
+      return `Something went wrong on the server, so the workout wasn't ${
+        action === 'share' ? 'shared' : 'imported'
+      }. Try again later.`;
+  }
+}
 
 export interface SetupOpts {
   storage: Storage;
   onStart: (segments: Segment[], programName: string) => void;
   /** Called when the start button is clicked while a session is active. */
   onStop?: () => void;
+  /** Share/Import client settings; defaults to SHARE_BASE_URL and the global fetch. */
+  share?: Partial<ShareClientOptions>;
 }
 
 /** Handle returned by mountSetup so the host can sync the start/stop button. */
@@ -47,6 +94,9 @@ const ICON = {
   generate: '<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg>',
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
+  share:
+    '<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  import: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
 };
 
@@ -134,11 +184,28 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
             <div class="save-row">
               <input class="setup-name" type="text" placeholder="Name this session to save it as a template" />
               <button class="btn setup-save">${ICON.save} Save</button>
+              <button class="btn setup-share" type="button">${ICON.share} Share</button>
+            </div>
+            <div class="share-out">
+              <div class="setup-share-result share-result" hidden>
+                <input class="setup-share-link" type="text" readonly aria-label="Share link" />
+                <button class="btn setup-share-copy" type="button">Copy</button>
+              </div>
+              <p class="setup-share-msg share-msg" role="status" aria-live="polite"></p>
             </div>
           </section>
         </div>
 
         <div>
+          <section class="panel">
+            <div class="panel-head"><h2>Import</h2><span class="hint">Paste a share link</span></div>
+            <div class="import-row">
+              <input class="setup-import-input" type="text" placeholder="https://…/w/abc12345" aria-label="Share link or ID" />
+              <button class="btn setup-import" type="button">${ICON.import} Import</button>
+            </div>
+            <p class="setup-import-msg share-msg" role="status" aria-live="polite"></p>
+          </section>
+
           <section class="panel">
             <div class="panel-head"><h2>Templates</h2></div>
             <div class="setup-tpl-list"></div>
@@ -249,13 +316,14 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
         const swatches = INTENSITY_ORDER.filter((i) => t.segments.some((seg) => seg.intensity === i))
           .map((i) => `<i style="background:${INTENSITY_META[i].color}"></i>`)
           .join('');
-        return `<div class="setup-tpl" data-id="${t.id}">
-             <button class="setup-load" data-id="${t.id}">
-               <span class="t-name">${t.name}</span>
+        const id = escapeHtml(t.id);
+        return `<div class="setup-tpl" data-id="${id}">
+             <button class="setup-load" data-id="${id}">
+               <span class="t-name">${escapeHtml(t.name)}</span>
                <span class="t-meta">${formatClock(s.totalSec)} · ${s.blocks} block${s.blocks === 1 ? '' : 's'}</span>
              </button>
              <span class="t-swatches">${swatches}</span>
-             <button class="setup-del icon-btn" data-id="${t.id}" title="Delete" aria-label="Delete">✕</button>
+             <button class="setup-del icon-btn" data-id="${id}" title="Delete" aria-label="Delete">✕</button>
            </div>`;
       })
       .join('');
@@ -305,6 +373,95 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     opts.storage.saveTemplate(tpl);
     nameEl.value = '';
     renderTemplates();
+  });
+
+  // ---- Share / Import ----
+  const shareOpts: ShareClientOptions = {
+    baseUrl: opts.share?.baseUrl ?? SHARE_BASE_URL,
+    fetch: opts.share?.fetch,
+  };
+  const shareBtn = container.querySelector('.setup-share') as HTMLButtonElement;
+  const shareResult = container.querySelector('.setup-share-result') as HTMLElement;
+  const shareLink = container.querySelector('.setup-share-link') as HTMLInputElement;
+  const copyBtn = container.querySelector('.setup-share-copy') as HTMLButtonElement;
+  const shareMsg = container.querySelector('.setup-share-msg') as HTMLElement;
+  const importInput = container.querySelector('.setup-import-input') as HTMLInputElement;
+  const importBtn = container.querySelector('.setup-import') as HTMLButtonElement;
+  const importMsg = container.querySelector('.setup-import-msg') as HTMLElement;
+
+  const say = (el: HTMLElement, text: string, tone: 'error' | 'ok' | 'busy' | '' = '') => {
+    el.textContent = text;
+    if (tone) el.dataset.tone = tone;
+    else delete el.dataset.tone;
+  };
+
+  shareBtn.addEventListener('click', async () => {
+    const segments = readEditor(editor);
+    shareResult.hidden = true;
+    if (segments.length === 0) {
+      say(shareMsg, 'Add a block before sharing.', 'error');
+      return;
+    }
+    // The typed name wins (it's what Save would use); otherwise the workout's
+    // provenance label, e.g. 'Quick 20' or '20 min · random'.
+    const name = (nameEl.value.trim() || programName || 'Untitled').slice(0, MAX_NAME_LENGTH);
+    shareBtn.disabled = true;
+    say(shareMsg, 'Creating link…', 'busy');
+    try {
+      const { url } = await createShare(toSharedWorkout(name, segments), shareOpts);
+      shareLink.value = url;
+      copyBtn.textContent = 'Copy';
+      shareResult.hidden = false;
+      say(shareMsg, `Anyone with this link can view and import “${name}”.`, 'ok');
+    } catch (e) {
+      say(shareMsg, shareErrorMessage(e, 'share'), 'error');
+    } finally {
+      shareBtn.disabled = false;
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    shareLink.select();
+    try {
+      await navigator.clipboard.writeText(shareLink.value);
+    } catch {
+      // No async clipboard (older browser, or permission denied): fall back to
+      // the selected text. execCommand is deprecated but still works there.
+      if (!shareLink.ownerDocument.execCommand?.('copy')) {
+        say(shareMsg, 'Copy failed. The link is selected; press Cmd/Ctrl+C.', 'error');
+        return;
+      }
+    }
+    copyBtn.textContent = 'Copied';
+  });
+
+  const doImport = async () => {
+    const text = importInput.value.trim();
+    if (!text) {
+      say(importMsg, 'Paste a share link first.', 'error');
+      return;
+    }
+    importBtn.disabled = true;
+    say(importMsg, 'Fetching…', 'busy');
+    try {
+      const tpl = fromSharedWorkout(await fetchShare(text, shareOpts));
+      opts.storage.saveTemplate(tpl);
+      renderTemplates();
+      renderWorkout(
+        tpl.segments.map((s) => ({ ...s, id: makeId() })),
+        tpl.name,
+      );
+      importInput.value = '';
+      say(importMsg, `Imported “${tpl.name}” and saved it to your templates.`, 'ok');
+    } catch (e) {
+      say(importMsg, shareErrorMessage(e, 'import'), 'error');
+    } finally {
+      importBtn.disabled = false;
+    }
+  };
+  importBtn.addEventListener('click', doImport);
+  importInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doImport();
   });
 
   container.querySelector('.setup-density')!.addEventListener('change', (e) => {

@@ -177,6 +177,21 @@ export const SETUP_CSS = `
     background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px; padding: 11px 13px; }
   .setup .setup-name::placeholder { color: var(--mute); }
 
+  /* share link + import box */
+  .setup .share-result { display: flex; gap: 10px; margin-top: 12px; }
+  .setup .share-result[hidden] { display: none; }
+  .setup .setup-share-link, .setup .setup-import-input { flex: 1; min-width: 0; font: inherit;
+    font-size: 13px; color: var(--text); background: var(--inset); border: 1px solid var(--border-2);
+    border-radius: 11px; padding: 11px 13px; }
+  .setup .setup-share-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .setup .setup-import-input::placeholder { color: var(--mute); }
+  .setup .import-row { display: flex; gap: 10px; }
+  .setup .btn:disabled { opacity: .6; cursor: progress; transform: none; }
+  .setup .share-msg { margin: 8px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--dim); }
+  .setup .share-msg:empty { display: none; }
+  .setup .share-msg[data-tone="error"] { color: #ff6b6b; }
+  .setup .share-msg[data-tone="ok"] { color: var(--dim); }
+
   /* ---------- templates ---------- */
   .setup .setup-tpl-list { display: flex; flex-direction: column; gap: 8px; }
   .setup .setup-tpl { display: flex; align-items: center; gap: 8px; background: var(--inset);

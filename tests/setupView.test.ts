@@ -236,3 +236,195 @@ describe('setup view history panel', () => {
     expect(container.querySelectorAll('.hist-item')).toHaveLength(1);
   });
 });
+
+function jsonResponse(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+/** Let the fake fetch's promise chain and the view's handlers settle. */
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
+const BASE = 'https://share.test';
+const SHARED = {
+  v: 1,
+  name: 'Friday pyramid',
+  segments: [
+    { intensity: 'easy', durationSec: 300 },
+    { intensity: 'hard', durationSec: 120, label: 'Push' },
+    { intensity: 'easy', durationSec: 180 },
+  ],
+};
+
+const q = <T extends Element = HTMLElement>(sel: string) => container.querySelector(sel) as T;
+
+describe('setup view share', () => {
+  it('posts the editor workout and shows the link with a Copy button', async () => {
+    const fetch = vi.fn(async () =>
+      jsonResponse(201, { id: 'abcDEF12', url: `${BASE}/w/abcDEF12` }),
+    );
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    q<HTMLInputElement>('.setup-name').value = 'My share';
+    q<HTMLButtonElement>('.setup-share').click();
+    await flush();
+
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`${BASE}/api/workouts`);
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.name).toBe('My share');
+    const editorRows = container.querySelectorAll('.seg-row').length;
+    expect(body.segments).toHaveLength(editorRows);
+    expect(body.segments[0].id).toBeUndefined();
+
+    expect(q<HTMLInputElement>('.setup-share-link').value).toBe(`${BASE}/w/abcDEF12`);
+    expect(q('.setup-share-result').hidden).toBe(false);
+    expect(q('.setup-share-copy')).not.toBeNull();
+  });
+
+  it('falls back to the program name when the name box is empty', async () => {
+    const fetch = vi.fn(async () => jsonResponse(201, { id: 'abcDEF12' }));
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    q<HTMLButtonElement>('.setup-load').click(); // Quick 20
+    q<HTMLButtonElement>('.setup-share').click();
+    await flush();
+    const init = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(init.body as string).name).toBe('Quick 20');
+    // No url in the response → built from the base URL.
+    expect(q<HTMLInputElement>('.setup-share-link').value).toBe(`${BASE}/w/abcDEF12`);
+  });
+
+  it('Copy writes the link to the clipboard', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const fetch = vi.fn(async () => jsonResponse(201, { id: 'abcDEF12' }));
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    q<HTMLButtonElement>('.setup-share').click();
+    await flush();
+    q<HTMLButtonElement>('.setup-share-copy').click();
+    await flush();
+    expect(writeText).toHaveBeenCalledWith(`${BASE}/w/abcDEF12`);
+    expect(q('.setup-share-copy').textContent).toContain('Copied');
+  });
+
+  it.each([
+    [429, /too many/i],
+    [413, /too big/i],
+    [500, /went wrong/i],
+  ])('shows a clear error for HTTP %i', async (status, msg) => {
+    const fetch = vi.fn(async () => jsonResponse(status, { error: 'x' }));
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    q<HTMLButtonElement>('.setup-share').click();
+    await flush();
+    expect(q('.setup-share-msg').textContent).toMatch(msg);
+    expect(q('.setup-share-msg').dataset.tone).toBe('error');
+    expect(q('.setup-share-result').hidden).toBe(true);
+  });
+
+  it('shows an offline error when fetch throws', async () => {
+    const fetch = vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    q<HTMLButtonElement>('.setup-share').click();
+    await flush();
+    expect(q('.setup-share-msg').textContent).toMatch(/connection/i);
+  });
+
+  it('does not post an empty workout', async () => {
+    const fetch = vi.fn();
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    container.querySelectorAll<HTMLButtonElement>('.seg-del').forEach((b) => b.click());
+    q<HTMLButtonElement>('.setup-share').click();
+    await flush();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(q('.setup-share-msg').textContent).toMatch(/add a block/i);
+  });
+});
+
+describe('setup view import', () => {
+  const doImport = async (text: string) => {
+    q<HTMLInputElement>('.setup-import-input').value = text;
+    q<HTMLButtonElement>('.setup-import').click();
+    await flush();
+  };
+
+  it('fetches a pasted link, saves it as a template and loads it into the editor', async () => {
+    const fetch = vi.fn(async () => jsonResponse(200, SHARED));
+    let name = '';
+    mountSetup(container, {
+      storage,
+      onStart: (_s: Segment[], programName: string) => (name = programName),
+      share: { baseUrl: BASE, fetch },
+    });
+    await doImport('https://rowalong.endlessrainstudio.com/w/abcDEF12');
+
+    expect((fetch.mock.calls[0] as unknown[])[0]).toBe(`${BASE}/api/workouts/abcDEF12`);
+    const saved = storage.listTemplates();
+    expect(saved).toHaveLength(1);
+    expect(saved[0].name).toBe('Friday pyramid');
+    expect(saved[0].segments.map(({ intensity, durationSec, label }) => ({ intensity, durationSec, label }))).toEqual([
+      { intensity: 'easy', durationSec: 300, label: undefined },
+      { intensity: 'hard', durationSec: 120, label: 'Push' },
+      { intensity: 'easy', durationSec: 180, label: undefined },
+    ]);
+    expect(container.querySelectorAll('.seg-row')).toHaveLength(3);
+    expect(container.querySelector('.setup-tpl-list')!.textContent).toContain('Friday pyramid');
+    expect(q<HTMLInputElement>('.setup-import-input').value).toBe('');
+    expect(q('.setup-import-msg').textContent).toContain('Friday pyramid');
+
+    q<HTMLButtonElement>('.setup-start').click();
+    expect(name).toBe('Friday pyramid');
+  });
+
+  it('accepts a bare id', async () => {
+    const fetch = vi.fn(async () => jsonResponse(200, SHARED));
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    await doImport('  abcDEF12 ');
+    expect((fetch.mock.calls[0] as unknown[])[0]).toBe(`${BASE}/api/workouts/abcDEF12`);
+    expect(storage.listTemplates()).toHaveLength(1);
+  });
+
+  it('rejects a bad link without fetching', async () => {
+    const fetch = vi.fn();
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    await doImport('https://example.com/not-a-share');
+    expect(fetch).not.toHaveBeenCalled();
+    expect(q('.setup-import-msg').textContent).toMatch(/doesn.t look like a RowAlong share link/i);
+    expect(q('.setup-import-msg').dataset.tone).toBe('error');
+    expect(storage.listTemplates()).toHaveLength(0);
+  });
+
+  it.each([
+    [404, /no shared workout/i],
+    [429, /too many/i],
+    [500, /went wrong/i],
+  ])('shows a clear error for HTTP %i', async (status, msg) => {
+    const fetch = vi.fn(async () => jsonResponse(status, { error: 'x' }));
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    await doImport('abcDEF12');
+    expect(q('.setup-import-msg').textContent).toMatch(msg);
+    expect(storage.listTemplates()).toHaveLength(0);
+  });
+
+  it('shows an offline error when fetch throws', async () => {
+    const fetch = vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    await doImport('abcDEF12');
+    expect(q('.setup-import-msg').textContent).toMatch(/connection/i);
+  });
+
+  it('escapes an imported name in the templates list', async () => {
+    const evil = { ...SHARED, name: '<img src=x onerror=alert(1)>' };
+    const fetch = vi.fn(async () => jsonResponse(200, evil));
+    mountSetup(container, { storage, onStart: () => {}, share: { baseUrl: BASE, fetch } });
+    await doImport('abcDEF12');
+    expect(container.querySelector('.setup-tpl-list img')).toBeNull();
+    expect(container.querySelector('.setup-tpl-list')!.textContent).toContain('<img src=x');
+  });
+});
