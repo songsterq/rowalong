@@ -80,18 +80,14 @@ export async function handleRequest(
   const path = url.pathname;
 
   if (path === '/api/workouts' || path.startsWith('/api/workouts/')) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    // A thrown binding call (e.g. KV over its free daily write quota) would
+    // otherwise become the runtime's bare 500 without CORS headers, which the
+    // app can only read as a network failure.
+    try {
+      return await handleWorkoutsApi(request, env, url, path, deps);
+    } catch {
+      return error(500, 'Server error; try again later');
     }
-    if (path === '/api/workouts') {
-      if (request.method !== 'POST') return methodNotAllowed('POST, OPTIONS');
-      return createWorkout(request, env, url, deps.newId ?? generateShareId);
-    }
-    const id = path.slice('/api/workouts/'.length);
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return methodNotAllowed('GET, OPTIONS');
-    }
-    return getWorkout(id, env);
   }
 
   if (path.startsWith('/api/')) return error(404, 'Not found');
@@ -105,6 +101,27 @@ export async function handleRequest(
 
   // Anything else: the static site.
   return env.ASSETS.fetch(request);
+}
+
+async function handleWorkoutsApi(
+  request: Request,
+  env: Env,
+  url: URL,
+  path: string,
+  deps: HandlerDeps,
+): Promise<Response> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+  if (path === '/api/workouts') {
+    if (request.method !== 'POST') return methodNotAllowed('POST, OPTIONS');
+    return createWorkout(request, env, url, deps.newId ?? generateShareId);
+  }
+  const id = path.slice('/api/workouts/'.length);
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return methodNotAllowed('GET, OPTIONS');
+  }
+  return getWorkout(id, env);
 }
 
 function htmlHeaders(nonce: string | null, cache: string): Record<string, string> {

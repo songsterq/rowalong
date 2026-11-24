@@ -113,6 +113,17 @@ describe('POST /api/workouts', () => {
     expect(kv.map.size).toBe(1);
   });
 
+  it('answers a KV failure (e.g. the daily write quota) with a CORS-readable 500', async () => {
+    const { env, kv } = makeEnv();
+    kv.put = async () => {
+      throw new Error('KV put() limit exceeded for the day.');
+    };
+    const res = await handleRequest(post(workout), env);
+    expect(res.status).toBe(500);
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(typeof (await bodyOf(res)).error).toBe('string');
+  });
+
   it.each([
     ['an unknown intensity', { ...workout, segments: [{ intensity: 'sprint', durationSec: 60 }] }],
     ['a duration not in 5-second steps', { ...workout, segments: [{ intensity: 'easy', durationSec: 62 }] }],
