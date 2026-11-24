@@ -50,6 +50,14 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
     weekly / all-time stats over `SessionRecord[]`.
   - `sessionRecorder.ts` — `createRecorder(storage, ctx)`: write-once
     `finish(elapsedSec, completed)` that turns a run into a `SessionRecord`.
+  - `share.ts` — share-by-link core, imported by both the app and the share
+    Worker: the `SharedWorkout` payload (no ids), strict validation + caps,
+    canonical JSON, the content-hashed id (`shareIdFor`, SHA-256 → 10 base64url
+    chars), `parseShareLink`, and the single `SHARE_BASE_URL`. The id hashes the
+    canonical form, so changing `serializeSharedWorkout` or the normalization in
+    `validateSharedWorkout` changes the id of every workout shared afterwards
+    (old links still resolve, but re-sharing no longer dedups); a golden-id test
+    guards it.
 - `src/ui/` — DOM:
   - `overlayView.ts` — the floating widget; **injects its own CSS** so it works in
     any host document; pill/coach density toggle; click-to-pause; controls.
