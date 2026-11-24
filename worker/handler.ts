@@ -1,18 +1,21 @@
 // Request handling for the `rowalong` Worker (entry: worker/index.ts). Static
 // assets (site/) are still served by the assets layer; wrangler.jsonc routes only
-// /api/* and /w/* here first (assets.run_worker_first), and anything else this
-// sees is handed back to env.ASSETS.
+// /api/* and /w/* here first (assets.run_worker_first): /api/* is the JSON API,
+// /w/:id the browser preview page (./preview), and anything else this sees is
+// handed back to env.ASSETS.
 //
 // Payload rules come from src/core/share.ts, the same module the app uses, so
 // the client and server can't disagree about what a valid workout is.
 import {
   MAX_SHARE_BYTES,
+  SharedWorkout,
   generateShareId,
   isShareId,
   shareUrl,
   utf8Length,
   validateSharedWorkout,
 } from '../src/core/share';
+import { renderNotFoundPage, renderPreviewPage } from './preview';
 
 // Minimal shapes of the Cloudflare bindings we use, so the Worker typechecks
 // without @cloudflare/workers-types (and tests can pass plain fakes).
@@ -93,8 +96,72 @@ export async function handleRequest(
 
   if (path.startsWith('/api/')) return error(404, 'Not found');
 
-  // /w/:id (the browser preview, ROW-3) and anything else: the static site.
+  if (path.startsWith('/w/')) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response('Method not allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+    }
+    return previewPage(path.slice('/w/'.length), env, url, request.method === 'HEAD');
+  }
+
+  // Anything else: the static site.
   return env.ASSETS.fetch(request);
+}
+
+function htmlHeaders(nonce: string | null, cache: string): Record<string, string> {
+  const script = nonce ? `'nonce-${nonce}'` : "'none'";
+  return {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': cache,
+    // site/_headers only covers assets, so repeat its headers here.
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'x-frame-options': 'DENY',
+    'content-security-policy': [
+      "default-src 'none'",
+      `script-src ${script}`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      'font-src https://fonts.gstatic.com',
+      "img-src 'self'",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+    ].join('; '),
+  };
+}
+
+function newNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+async function previewPage(id: string, env: Env, url: URL, head: boolean): Promise<Response> {
+  const stored = isShareId(id) ? await env.SHARES.get(KEY_PREFIX + id) : null;
+  // Stored values were validated on create; re-check anyway so a bad KV entry
+  // renders as "not found" instead of throwing.
+  const v = stored === null ? null : parseStored(stored);
+  if (!v) {
+    return new Response(head ? null : renderNotFoundPage(), {
+      status: 404,
+      headers: htmlHeaders(null, 'no-store'),
+    });
+  }
+  const nonce = newNonce();
+  const html = renderPreviewPage(v, { shareUrl: shareUrl(url.origin, id), nonce });
+  // The workout is immutable but the page (download URL, styling) changes with
+  // deploys, so cache for an hour rather than forever.
+  return new Response(head ? null : html, {
+    status: 200,
+    headers: htmlHeaders(nonce, 'public, max-age=3600'),
+  });
+}
+
+function parseStored(stored: string): SharedWorkout | null {
+  try {
+    const v = validateSharedWorkout(JSON.parse(stored));
+    return v.ok ? v.value : null;
+  } catch {
+    return null;
+  }
 }
 
 function methodNotAllowed(allow: string): Response {

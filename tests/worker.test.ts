@@ -249,8 +249,9 @@ describe('routing and CORS', () => {
   it('hands everything else to the static assets', async () => {
     const { env, assetHits } = makeEnv();
     await handleRequest(get('/'), env);
-    await handleRequest(get('/w/AbCd1234'), env);
-    expect(assetHits).toEqual(['/', '/w/AbCd1234']);
+    await handleRequest(get('/styles.css'), env);
+    await handleRequest(get('/w/AbCd1234'), env); // the preview page, not an asset
+    expect(assetHits).toEqual(['/', '/styles.css']);
   });
 });
 
