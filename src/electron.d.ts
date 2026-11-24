@@ -23,6 +23,14 @@ export interface ElectronAPI {
   onSessionPayload(cb: (payload: SessionPayload) => void): void;
   /** Setup window: notified when the overlay window closes (session ended). */
   onSessionEnded(cb: () => void): void;
+  /**
+   * Setup window: receive rowalong:// deep links ('Open in RowAlong' on a share
+   * page), raw, for `importShareLink` to parse. Registering is what tells main the
+   * page is listening, so call it once, after the page is ready to import: main
+   * queues links until then (a cold start brings its link before the page loads).
+   * Main brings the window forward itself.
+   */
+  onOpenShareLink(cb: (link: string) => void): void;
 }
 
 declare global {

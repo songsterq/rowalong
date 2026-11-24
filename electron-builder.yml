@@ -10,6 +10,11 @@ files:
   - dist/**
   - electron/**
   - package.json
+# rowalong://w/<id> deep links from a share preview page's 'Open in RowAlong'
+# button (becomes CFBundleURLTypes in Info.plist; electron/app.cjs handles them).
+protocols:
+  - name: RowAlong share link
+    schemes: [rowalong]
 mac:
   category: public.app-category.healthcare-fitness
   target: [dmg]

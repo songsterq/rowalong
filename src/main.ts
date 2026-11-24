@@ -193,6 +193,14 @@ window.electronAPI?.onSessionEnded(() => {
   setup.refreshHistory();
 });
 
+// Electron only: a rowalong:// deep link ('Open in RowAlong' on a share page).
+// The same import as the Import box: save to Templates, load into the builder,
+// show the outcome (or the error) under the Import box. Main has already brought
+// the window forward, and held the link until this listener was registered.
+window.electronAPI?.onOpenShareLink((link) => {
+  void setup.importShareLink(link);
+});
+
 // The Electron overlay window writes the record in its own renderer; the
 // `storage` event fires only in *other* documents of the origin, which is
 // exactly this one. Keeps the panel correct regardless of how the

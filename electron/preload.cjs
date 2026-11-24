@@ -13,4 +13,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('session-payload', (_event, payload) => cb(payload)),
   // main → setup window: the overlay closed, so the session ended — reset the toggle.
   onSessionEnded: (cb) => ipcRenderer.on('session-ended', () => cb()),
+  // main → setup window: a rowalong:// deep link to import. Registering tells
+  // main this page is listening, so it sends the links it queued meanwhile.
+  onOpenShareLink: (cb) => {
+    ipcRenderer.on('open-share-link', (_event, link) => cb(link));
+    ipcRenderer.send('share-link-ready');
+  },
 });

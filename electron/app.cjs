@@ -12,6 +12,12 @@ const { app, BrowserWindow, ipcMain, screen, nativeTheme } = require('electron')
 const path = require('path');
 const fs = require('fs');
 const { pickStartBounds } = require('./windowBounds.cjs');
+const {
+  DEEP_LINK_SCHEME,
+  toDeepLink,
+  deepLinkFromArgv,
+  createLinkQueue,
+} = require('./deepLink.cjs');
 
 // Let the overlay window play tone cues without a user gesture.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -31,6 +37,62 @@ function loadPage(win, page /* 'index' | 'overlay' */) {
 
 let setupWin = null;
 let overlayWin = null;
+
+// --- rowalong:// deep links ('Open in RowAlong' on a share preview page) ---
+//
+// One RowAlong at a time. Launch Services already routes a clicked link to the
+// running app (open-url below); this lock covers launches that bypass it, e.g.
+// `RowAlong.app/Contents/MacOS/RowAlong rowalong://w/<id>` from a terminal: that
+// second process hands its command line over ('second-instance') and quits.
+const isPrimary = app.requestSingleInstanceLock();
+if (!isPrimary) app.quit();
+
+// Links wait here until the setup page has loaded and said it's listening
+// ('share-link-ready'): a cold start delivers its link before 'ready', long
+// before there's a page to send it to. The page then imports it.
+const linkQueue = createLinkQueue();
+
+// Bring the setup window forward, making one if it was closed (the app stays
+// alive in the Dock with no windows); a new one opens focused and drains the
+// queue once its page is listening.
+function showSetupWindow() {
+  // A clicked link should bring the app forward even if it wasn't active.
+  if (process.platform === 'darwin') app.focus({ steal: true });
+  if (!setupWin) {
+    createSetupWindow();
+    return;
+  }
+  if (setupWin.isMinimized()) setupWin.restore();
+  setupWin.show();
+  setupWin.focus();
+}
+
+function receiveDeepLink(value) {
+  if (!isPrimary) return; // quitting: never open a window in a second instance
+  const link = toDeepLink(value);
+  if (!link) return;
+  linkQueue.push(link);
+  // Before 'ready' (a cold start) whenReady opens the window; the link waits.
+  if (app.isReady()) showSetupWindow();
+}
+
+// macOS delivers links here, both to a running app and at a cold start (before
+// 'ready', so this must be registered at startup, not in whenReady).
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  receiveDeepLink(url);
+});
+
+// A second launch: take its link if it had one, else just come forward.
+app.on('second-instance', (_event, argv) => {
+  const link = deepLinkFromArgv(argv);
+  if (link) receiveDeepLink(link);
+  else if (app.isReady()) showSetupWindow();
+});
+
+// Our own command line can carry a link too (a terminal launch, or
+// `electron electron/app.cjs rowalong://w/<id>` to try the path in dev).
+receiveDeepLink(deepLinkFromArgv(process.argv));
 
 // Overlay window default size + enforced minimum (Electron minWidth/minHeight).
 // minHeight is a small safety floor only — the card's measured height drives the
@@ -77,9 +139,13 @@ function createSetupWindow() {
     backgroundColor: '#151310',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
   });
+  // Stop handing links to this page as soon as it starts (re)loading; the new
+  // page says 'share-link-ready' again once it's listening.
+  setupWin.webContents.on('did-start-loading', () => linkQueue.close());
   loadPage(setupWin, 'index');
   setupWin.on('closed', () => {
     setupWin = null;
+    linkQueue.close();
   });
 }
 
@@ -154,6 +220,19 @@ function openOverlay(payload) {
   });
 }
 
+// The setup page registered its deep-link listener: hand it the queued links,
+// and later ones as they arrive. Ignored from any other page (the overlay
+// window shares the preload).
+ipcMain.on('share-link-ready', (event) => {
+  const wc = event.sender;
+  if (!setupWin || setupWin.isDestroyed() || wc !== setupWin.webContents) return;
+  linkQueue.open((link) => {
+    if (wc.isDestroyed()) return false;
+    wc.send('open-share-link', link);
+    return true;
+  });
+});
+
 ipcMain.on('start-session', (_event, payload) => {
   openOverlay(payload);
 });
@@ -188,6 +267,13 @@ ipcMain.on('set-overlay-height', (_event, height) => {
 });
 
 app.whenReady().then(() => {
+  if (!isPrimary) return; // quitting: the running instance has the link
+  // Make this app the default handler for rowalong:// links. The scheme itself
+  // is declared in Info.plist (`protocols` in electron-builder.yml), which is
+  // what lets macOS launch us for it. Packaged builds only: under electron:dev
+  // the running bundle is the stock Electron.app, and claiming the scheme for it
+  // would send real links to a bare Electron window.
+  if (app.isPackaged) app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME);
   // Normal Dock (Regular) app. The overlay floats over another app's native
   // fullscreen because its window is a non-activating NSPanel (type: 'panel' in
   // openOverlay), which works independent of Dock/accessory status — so we do
