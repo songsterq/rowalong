@@ -65,6 +65,8 @@ curl -i -X POST https://rowalong.endlessrainstudio.com/api/w \
 # 201 (or 200 the second time) with {"id":"<id>","url":".../w/<id>"}
 curl -i https://rowalong.endlessrainstudio.com/api/w/<id>
 # 200 with the workout; an unknown id gives 404
+# Then open https://rowalong.endlessrainstudio.com/w/<id> in a browser: the
+# preview page, with "Deploy check", 1:00 total and one Easy block.
 ```
 
 The same namespace can be found later in the Cloudflare dashboard under
@@ -77,6 +79,12 @@ How it behaves:
   id only if that id isn't stored yet, with no expiry, and answers
   `{ id, url }`. A bad or oversized workout gets a `400` with `{ error }`.
 - `GET /api/w/<id>` returns the workout, or `404`.
+- `GET /w/<id>`, the link people open, is an HTML preview page rendered by the
+  script (`worker/previewPage.ts`, styled by `styles.css`): name, total time,
+  intensity timeline, blocks, and Open in RowAlong (`rowalong://w/<id>`) /
+  Download buttons. An unknown id gets a friendly not-found page with a `404`.
+  Pages say `noindex`, and the script sets its own security headers and CSP
+  (`_headers` doesn't apply to it).
 - CORS is open to any origin (the packaged app's origin is `null`).
 - Links never expire and there is no delete endpoint. To take one down, delete
   its key in the dashboard or with
@@ -104,12 +112,14 @@ To set up or move it:
 1. Upload `release/RowAlong-<version>-arm64.dmg` to the R2 bucket behind that host.
 2. Make sure the object is publicly readable at the URL above.
 3. If the host or path changes, update every `DOWNLOAD-URL` href in `index.html`
-   (search for `DOWNLOAD-URL`; there are three).
+   (search for `DOWNLOAD-URL`; there are three) and `DOWNLOAD_URL` in
+   `worker/previewPage.ts`, the share preview page's Download link.
 
 To bump the version: `npm version <new>` (bumps `package.json` **and**
 `package-lock.json`), `npm run pack` to build the DMG, upload it to R2, and only
 then update `index.html` — the three `DOWNLOAD-URL` hrefs plus the two version
-strings (the closing band's meta line and the footer).
+strings (the closing band's meta line and the footer) — and `DOWNLOAD_URL` in
+`worker/previewPage.ts`. `npm test` fails if that constant and the hrefs differ.
 
 **Upload before you push.** This page redeploys on every push to `main`, so the
 moment the new hrefs land the buttons are live — pointing them at a DMG that

@@ -87,7 +87,11 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   that serves `site/` and the share API. `handler.ts` holds the routing and
   `POST /api/w` / `GET /api/w/<id>` over structural `ShareStore` (KV) and
   `AssetsFetcher` bindings, so tests use fakes; `index.ts` only binds it to the
-  real `KVNamespace`/`Fetcher`. Deploy + one-time KV setup: `site/DEPLOY.md`.
+  real `KVNamespace`/`Fetcher`. `previewPage.ts` renders the HTML for
+  `GET /w/<id>` (the preview, or a friendly 404), styled by `site/styles.css`'s
+  last section; its `DOWNLOAD_URL` must match `site/index.html`'s DMG hrefs, and
+  every class it uses must exist in `styles.css` (tests check both). Deploy +
+  one-time KV setup: `site/DEPLOY.md`.
 
 **Two host paths:**
 - **Browser** → Document PiP. Floats over *browser* video only.
@@ -132,10 +136,12 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
   `crypto.randomUUID()`) so determinism tests pass; consumers re-id on load.
 - **The Worker typechecks against the Workers types, not the DOM.** The two
   declare the same globals differently, so `worker/` has its own tsconfig (run
-  by `npm run typecheck`). Code shared with the app (`src/core/share.ts`) and
+  by `npm run typecheck`). Code shared with the app (`src/core/share.ts`,
+  `src/ui/format.ts`, which the preview page uses, so it must stay DOM-free) and
   `worker/handler.ts` must compile under both, so only `worker/index.ts` may name
   Workers-only types (`KVNamespace`, `ExportedHandler`, ...); tests import
-  `handler.ts`, never `index.ts`, and run in Vitest's `node` environment.
+  `handler.ts`, never `index.ts`, and run in Vitest's `node` environment
+  (`sharePreview.test.ts` stays on jsdom only to parse the page with DOMParser).
 - **Two HTML entries** (`index.html`, `overlay.html`) are registered in
   `vite.config.ts` `rollupOptions.input`; the dev server is pinned to port 5173
   (`strictPort`) because `electron/app.cjs` hardcodes that URL.
