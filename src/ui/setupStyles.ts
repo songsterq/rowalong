@@ -176,6 +176,27 @@ export const SETUP_CSS = `
   .setup .setup-name { flex: 1; font: inherit; font-size: 13.5px; color: var(--text);
     background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px; padding: 11px 13px; }
   .setup .setup-name::placeholder { color: var(--mute); }
+  .setup .btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+  .setup .btn:disabled:hover { background: var(--surface-2); }
+  @media (max-width: 560px) { .setup .save-row { flex-wrap: wrap; } .setup .setup-name { flex-basis: 100%; } }
+
+  /* share and import: a one-line status under the control, plus the link once shared */
+  .setup [hidden] { display: none !important; }
+  .setup .note { margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--dim);
+    overflow-wrap: anywhere; }
+  .setup .note[data-state="ok"] { color: oklch(0.82 0.12 150); }
+  .setup .note[data-state="error"] { color: oklch(0.74 0.16 25); }
+  .setup .share-link { display: block; width: 100%; margin-top: 8px; font: inherit; font-size: 13px;
+    color: var(--text); background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px;
+    padding: 10px 13px; font-variant-numeric: tabular-nums; }
+  .setup .share-link:focus-visible, .setup .setup-name:focus-visible, .setup .setup-import-link:focus-visible {
+    outline: none; border-color: oklch(0.7 0.13 45); box-shadow: 0 0 0 3px oklch(0.7 0.16 45 / 0.25); }
+  .setup .import-row { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border-2); }
+  .setup .setup-import-link { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--text);
+    background: var(--inset); border: 1px solid var(--border-2); border-radius: 11px; padding: 10px 12px; }
+  .setup .setup-import-link::placeholder { color: var(--mute); }
+  .setup .import-row .btn { padding: 10px 13px; }
 
   /* ---------- templates ---------- */
   .setup .setup-tpl-list { display: flex; flex-direction: column; gap: 8px; }

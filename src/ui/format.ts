@@ -1,5 +1,9 @@
 import { INTENSITY_META, Segment } from '../core/types';
 
+/** Escape text for an HTML text node or a double-quoted attribute value. */
+export const escapeHtml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 /** Format a whole number of seconds as `m:ss` (e.g. 90 -> '1:30'). */
 export function formatClock(totalSec: number): string {
   const s = Math.max(0, Math.round(totalSec));

@@ -1,6 +1,6 @@
 import { SessionRecord, Segment } from '../core/types';
 import { heatmapDays, historyStats } from '../core/history';
-import { formatClock } from './format';
+import { escapeHtml, formatClock } from './format';
 
 export const HEATMAP_WEEKS = 13;
 const RECENT_COUNT = 3;
@@ -24,9 +24,6 @@ function levelFor(minutes: number): number {
 function weekdayLabel(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { weekday: 'short' });
 }
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export function renderHistory(
   container: HTMLElement,

@@ -4,9 +4,11 @@ import { generate, snapMinutes, SUPPORTED_MINUTES } from '../core/generator';
 import { PushStyle, PUSH_STYLES } from '../core/pushStyles';
 import { starterTemplates } from '../core/starters';
 import { renderEditor, readEditor } from './segmentEditor';
-import { formatClock, timelineGradient } from './format';
+import { escapeHtml, formatClock, timelineGradient } from './format';
 import { SETUP_CSS } from './setupStyles';
 import { renderHistory } from './historyPanel';
+import { fromSharedWorkout, toSharedWorkout } from '../core/share';
+import { createShareClient, ShareClient } from '../core/shareClient';
 
 const titleCase = (s: string) => s[0].toUpperCase() + s.slice(1);
 const INTENSITY_ORDER: Intensity[] = ['easy', 'medium', 'hard', 'allout'];
@@ -16,7 +18,13 @@ export interface SetupOpts {
   onStart: (segments: Segment[], programName: string) => void;
   /** Called when the start button is clicked while a session is active. */
   onStop?: () => void;
+  /** Share API client. Defaults to one on SHARE_BASE_URL using the global fetch. */
+  shareClient?: ShareClient;
+  /** Put text on the clipboard. Defaults to navigator.clipboard.writeText. */
+  copyText?: (text: string) => Promise<void>;
 }
+
+export type ImportOutcome = { ok: true; template: Template } | { ok: false; error: string };
 
 /** Handle returned by mountSetup so the host can sync the start/stop button. */
 export interface MountedSetup {
@@ -24,6 +32,13 @@ export interface MountedSetup {
   setSessionActive(active: boolean): void;
   /** Re-read history from storage and repaint the panel (call after a session ends). */
   refreshHistory(): void;
+  /**
+   * Import a shared workout from a web link, a rowalong:// deep link or a bare id:
+   * save it to Templates under the sharer's name and load it into the builder.
+   * The outcome shows under the Import box; on failure nothing else changes.
+   * The Import box calls this, and so does the Electron deep-link handler.
+   */
+  importShareLink(link: string): Promise<ImportOutcome>;
 }
 
 export interface WorkoutSummary {
@@ -48,7 +63,20 @@ const ICON = {
   save: '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM7 3v5h8M7 21v-7h10v7"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg>',
+  import: '<svg viewBox="0 0 24 24"><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
 };
+
+type NoteState = 'idle' | 'busy' | 'ok' | 'error';
+
+/** Show a one-line status under a control; 'idle' hides it. Text only, never HTML. */
+function setNote(el: HTMLElement, state: NoteState, text = ''): void {
+  el.dataset.state = state;
+  el.textContent = text;
+  el.hidden = state === 'idle';
+}
+
+const clipboardWrite = (text: string): Promise<void> => navigator.clipboard.writeText(text);
 
 function injectStyles(doc: Document): void {
   if (doc.getElementById('wh-setup-css')) return;
@@ -132,8 +160,13 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
             <div class="setup-editor"></div>
 
             <div class="save-row">
-              <input class="setup-name" type="text" placeholder="Name this session to save it as a template" />
+              <input class="setup-name" type="text" placeholder="Name this session to save or share it" aria-label="Session name" />
               <button class="btn setup-save">${ICON.save} Save</button>
+              <button class="btn setup-share" title="Upload this workout and copy a link to it">${ICON.share} Share</button>
+            </div>
+            <div class="share-out">
+              <p class="note setup-share-msg" role="status" aria-live="polite" hidden></p>
+              <input class="share-link setup-share-link" type="text" readonly aria-label="Share link" hidden />
             </div>
           </section>
         </div>
@@ -142,6 +175,11 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
           <section class="panel">
             <div class="panel-head"><h2>Templates</h2></div>
             <div class="setup-tpl-list"></div>
+            <div class="import-row">
+              <input class="setup-import-link" type="text" placeholder="Paste a share link" aria-label="Share link to import" />
+              <button class="btn setup-import">${ICON.import} Import</button>
+            </div>
+            <p class="note setup-import-msg" role="status" aria-live="polite" hidden></p>
           </section>
 
           <section class="panel">
@@ -207,12 +245,30 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
   const summaryTotal = container.querySelector('.setup-summary-total') as HTMLElement;
   const summarySub = container.querySelector('.setup-summary-sub') as HTMLElement;
   const historyEl = container.querySelector('.setup-history') as HTMLElement;
+  const shareBtn = container.querySelector('.setup-share') as HTMLButtonElement;
+  const shareMsg = container.querySelector('.setup-share-msg') as HTMLElement;
+  const shareLink = container.querySelector('.setup-share-link') as HTMLInputElement;
+  const importInput = container.querySelector('.setup-import-link') as HTMLInputElement;
+  const importBtn = container.querySelector('.setup-import') as HTMLButtonElement;
+  const importMsg = container.querySelector('.setup-import-msg') as HTMLElement;
+  const shareClient = opts.shareClient ?? createShareClient();
+  const copyText = opts.copyText ?? clipboardWrite;
   // Provenance label for the workout currently in the editor: where it came from,
   // not what it now contains, so it survives manual block edits.
   let programName = '';
   let seed = 0;
 
+  let sharing = false;
+  const clearShareNote = () => {
+    if (sharing) return;
+    setNote(shareMsg, 'idle');
+    shareLink.hidden = true;
+    shareLink.value = '';
+  };
+
   const refreshSummary = () => {
+    // A shown link (or share error) is about the workout as it was; drop it on any change.
+    clearShareNote();
     const segments = readEditor(editor);
     const s = summarize(segments);
     timelineEl.style.backgroundImage = segments.length ? timelineGradient(segments) : 'none';
@@ -249,13 +305,15 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
         const swatches = INTENSITY_ORDER.filter((i) => t.segments.some((seg) => seg.intensity === i))
           .map((i) => `<i style="background:${INTENSITY_META[i].color}"></i>`)
           .join('');
-        return `<div class="setup-tpl" data-id="${t.id}">
-             <button class="setup-load" data-id="${t.id}">
-               <span class="t-name">${t.name}</span>
+        // Names can come from a share link, so they're untrusted: escape them.
+        const id = escapeHtml(t.id);
+        return `<div class="setup-tpl" data-id="${id}">
+             <button class="setup-load" data-id="${id}">
+               <span class="t-name">${escapeHtml(t.name)}</span>
                <span class="t-meta">${formatClock(s.totalSec)} · ${s.blocks} block${s.blocks === 1 ? '' : 's'}</span>
              </button>
              <span class="t-swatches">${swatches}</span>
-             <button class="setup-del icon-btn" data-id="${t.id}" title="Delete" aria-label="Delete">✕</button>
+             <button class="setup-del icon-btn" data-id="${id}" title="Delete" aria-label="Delete">✕</button>
            </div>`;
       })
       .join('');
@@ -307,6 +365,91 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     renderTemplates();
   });
 
+  shareBtn.addEventListener('click', async () => {
+    if (sharing) return;
+    const segments = readEditor(editor);
+    if (segments.length === 0) {
+      setNote(shareMsg, 'error', 'Add some blocks before sharing.');
+      return;
+    }
+    const name = nameEl.value.trim() || programName || 'Untitled';
+    clearShareNote();
+    sharing = true;
+    shareBtn.disabled = true;
+    setNote(shareMsg, 'busy', 'Uploading…');
+    try {
+      const r = await shareClient.share(toSharedWorkout(name, segments));
+      if (!r.ok) {
+        setNote(shareMsg, 'error', r.error);
+        return;
+      }
+      shareLink.value = r.url;
+      shareLink.hidden = false;
+      let copied = false;
+      try {
+        await copyText(r.url);
+        copied = true;
+      } catch {
+        // No clipboard access (permission, unfocused window): the link is shown to copy by hand.
+      }
+      setNote(
+        shareMsg,
+        'ok',
+        copied ? `Link copied. Anyone with it can import “${name}”.` : 'Link ready. Copy it below.',
+      );
+      if (!copied) shareLink.select();
+    } finally {
+      sharing = false;
+      shareBtn.disabled = false;
+    }
+  });
+  // Tab or click selects the whole link, ready for Cmd-C (on focus alone, the
+  // click's mouseup can drop the selection again).
+  for (const ev of ['focus', 'click']) shareLink.addEventListener(ev, () => shareLink.select());
+
+  // Imports can overlap (a deep link while the box is busy); keep the box locked
+  // until the last one settles.
+  let importsInFlight = 0;
+  const importShareLink = async (link: string): Promise<ImportOutcome> => {
+    importsInFlight += 1;
+    importBtn.disabled = true;
+    setNote(importMsg, 'busy', 'Importing…');
+    try {
+      const r = await shareClient.fetchShared(link);
+      if (!r.ok) {
+        setNote(importMsg, 'error', r.error);
+        return r;
+      }
+      // Keyed by the share id, so importing the same link again replaces this
+      // template instead of piling up copies (links are content-hashed snapshots).
+      const template: Template = { ...fromSharedWorkout(r.workout), id: `shared-${r.id}` };
+      opts.storage.saveTemplate(template);
+      renderTemplates();
+      renderWorkout(
+        template.segments.map((s) => ({ ...s, id: makeId() })),
+        template.name,
+      );
+      setNote(importMsg, 'ok', `Imported “${template.name}” into Templates and loaded it.`);
+      return { ok: true, template };
+    } finally {
+      importsInFlight -= 1;
+      importBtn.disabled = importsInFlight > 0;
+    }
+  };
+
+  const importFromBox = async () => {
+    if (importBtn.disabled) return;
+    const r = await importShareLink(importInput.value);
+    if (r.ok) importInput.value = '';
+  };
+  importBtn.addEventListener('click', importFromBox);
+  importInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void importFromBox();
+    }
+  });
+
   container.querySelector('.setup-density')!.addEventListener('change', (e) => {
     opts.storage.setPrefs({ density: (e.target as HTMLSelectElement).value as Density });
   });
@@ -345,5 +488,5 @@ export function mountSetup(container: HTMLElement, opts: SetupOpts): MountedSetu
     `${initialMin} min · ${initialStyle}`,
   );
 
-  return { setSessionActive, refreshHistory: renderHistoryPanel };
+  return { setSessionActive, refreshHistory: renderHistoryPanel, importShareLink };
 }
