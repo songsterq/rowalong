@@ -58,10 +58,18 @@ unit-tested; browser-API / Electron wrappers are thin and verified manually.
     `validateSharedWorkout` changes the id of every workout shared afterwards
     (old links still resolve, but re-sharing no longer dedups); a golden-id test
     guards it.
+  - `shareClient.ts` — `createShareClient({ fetch?, baseUrl? })`: `share()` validates
+    locally then POSTs, `fetchShared(link)` parses a link / deep link / bare id
+    and GETs + re-validates. Returns `{ ok, error }` with user-facing messages;
+    never throws. Tests inject a stub `fetch`.
 - `src/ui/` — DOM:
   - `overlayView.ts` — the floating widget; **injects its own CSS** so it works in
     any host document; pill/coach density toggle; click-to-pause; controls.
-  - `segmentEditor.ts`, `setupView.ts` — the setup page.
+  - `segmentEditor.ts`, `setupView.ts` — the setup page, including the Share
+    button and the Templates panel's Import box. `mountSetup` returns
+    `importShareLink(linkOrId)`, the one import path (the Electron deep link
+    calls it too); an import is saved as template id `shared-<id>`, so
+    re-importing replaces it.
   - `historyPanel.ts` — `renderHistory`: streak/week/total stat tiles, the
     13-week heatmap, and the last-3-sessions list with `onPick` to reload one.
 - `src/shell/` — `overlayHost.ts` (`OverlayHost` interface + `isPipSupported`),
